@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Model Fix Calculator — Manual Dates + Paste + Drag Resize</title>
+<title>Model Fix Calculator — Plain Text Column + Drag Resize</title>
 <style>
   :root{
-    --bg:#0b0b0c; --card:#121214; --grid:#222; --text:#eaeaea; --muted:#a8a8a8; --accent:#4ea3ff;
+    --bg:#0b0b0c; --card:#121214; --grid:#222; --text:#eaeaea; --muted:#a8a8a8;
     --fs:14px; --rowpad:10px;
   }
   *{box-sizing:border-box}
@@ -22,14 +22,13 @@
   .field label{font-size:12px;color:var(--muted)}
   .field input[type="number"]{background:#151518;border:1px solid #2a2a2a;color:var(--text);padding:6px 8px;border-radius:8px;min-width:80px}
   .panel button{background:#1a1a1a;border:1px solid #2b2b2b;color:#ddd;padding:8px 12px;border-radius:8px;cursor:pointer}
-  .panel button:hover{border-color:var(--accent)}
+  .panel button:hover{border-color:#4ea3ff}
 
   /* Resizable frame with explicit handles */
   .sheet-frame{position:relative;display:inline-block;width:1000px;height:420px;min-width:480px;min-height:260px;
     border:1px solid var(--grid);border-radius:10px;background:var(--card);overflow:auto}
   .sheet{min-width:900px;border:1px solid var(--grid);border-radius:8px;background:#0f0f12}
 
-  /* Edge/corner handles */
   .resize-handle{position:absolute;background:transparent;z-index:5}
   .resize-right{top:0;right:0;width:10px;height:100%;cursor:ew-resize}
   .resize-bottom{left:0;bottom:0;width:100%;height:10px;cursor:ns-resize}
@@ -43,22 +42,15 @@
   .col-resizer::after{content:"";position:absolute;inset:0 2px;border-right:2px solid #2d2d2d;opacity:.7}
 
   tbody td{border-top:1px solid var(--grid);padding:0}
-  input.cell{
-    width:100%;padding:var(--rowpad) 12px;background:transparent;border:none;outline:none;color:var(--text);font:inherit;text-align:right
-  }
-  /* Date as TEXT to allow free-form paste; we normalize in JS */
-  input.date{ text-align:left }
+  input.cell{width:100%;padding:var(--rowpad) 12px;background:transparent;border:none;outline:none;color:var(--text);font:inherit;text-align:right}
+  input.cell.textcol{ text-align:left }
   .ro{background:rgba(255,255,255,0.04);color:#dcdcdc}
-  .hint{color:var(--muted);font-size:12px}
 </style>
 </head>
 <body>
 <header>
   <h1>Model Fix Calculator</h1>
-  <div class="sub">
-    Dates are manual (free-form). You can **paste** one or many dates; we normalize to <code>YYYY-MM-DD</code>.  
-    Drag the frame edges/corner to resize; drag header edges to resize columns.
-  </div>
+  <div class="sub">First column is a plain text field (no date logic). Enter A and B; C/D/E compute automatically. Drag frame edges/corner to resize; drag header edges to resize columns.</div>
 </header>
 
 <div class="wrap">
@@ -77,7 +69,7 @@
       <table id="grid" aria-label="Model Fix Grid">
         <thead>
           <tr>
-            <th>Date <span class="col-resizer" data-col="1" title="Drag to resize column"></span></th>
+            <th>Text <span class="col-resizer" data-col="1" title="Drag to resize column"></span></th>
             <th>Model 1 (A) <span class="col-resizer" data-col="2" title="Drag to resize column"></span></th>
             <th>Model 2 (B) <span class="col-resizer" data-col="3" title="Drag to resize column"></span></th>
             <th>Fix1 (C) <span class="col-resizer" data-col="4" title="Drag to resize column"></span></th>
@@ -88,12 +80,6 @@
         <tbody id="tbody"></tbody>
       </table>
     </div>
-  </div>
-
-  <div class="hint" style="margin-top:6px">
-    C = 0.543·A + 0.457·B &nbsp;|&nbsp;
-    D = 12542.898914·A + 11420.962628·B − 109.512226·A² − 113.529363·B² − 673.234821·A·B − 2.044843·A³ − 0.046012·B³ + 8.490782·A²·B + 4.692059·A·B² − 212212.65665 &nbsp;|&nbsp;
-    E = 0.964·A + 0.036·B − 0.695
   </div>
 </div>
 
@@ -106,7 +92,7 @@
   const frame   = document.getElementById('frame');
   const table   = document.getElementById('grid');
 
-  /* ====== Math ====== */
+  /* Math */
   const fmt = n => (isFinite(n) ? n.toFixed(6).replace(/\.?0+$/,'') : "");
   function compute(A,B){
     const C = 0.543*A + 0.457*B;
@@ -120,69 +106,11 @@
     return {C,D,E};
   }
 
-  /* ====== Date parsing/normalization for paste & typing ====== */
-  const MONTHS = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];
-  function toISODate(d){
-    if (!(d instanceof Date) || isNaN(d)) return "";
-    const y = d.getFullYear();
-    const m = String(d.getMonth()+1).padStart(2,"0");
-    const day = String(d.getDate()).padStart(2,"0");
-    return `${y}-${m}-${day}`;
-  }
-  function parseDateSmart(s){
-    if (!s) return null;
-    s = String(s).trim().replace(/\s+/g,' ');
-    // ISO or dashed: YYYY-MM-DD or YYYY/M/D
-    let m = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/);
-    if (m){
-      const y=+m[1], mo=+m[2]-1, d=+m[3]; const dt=new Date(y,mo,d);
-      return (dt && dt.getMonth()===mo && dt.getDate()===d) ? dt : null;
-    }
-    // US slashed: M/D/YYYY or M-D-YYYY
-    m = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})$/);
-    if (m){
-      const mo=+m[1]-1, d=+m[2], y=+m[3]; const dt=new Date(y,mo,d);
-      return (dt && dt.getMonth()===mo && dt.getDate()===d) ? dt : null;
-    }
-    // D/M/YYYY (try EU if plausible)
-    m = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})$/);
-    if (m){
-      const d=+m[1], mo=+m[2]-1, y=+m[3]; const dt=new Date(y,mo,d);
-      if (dt && dt.getMonth()===mo && dt.getDate()===d) return dt;
-    }
-    // Month name: "Oct 22 2025" or "22 Oct 2025"
-    m = s.match(/^([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})$/);
-    if (m){
-      const mo = MONTHS.indexOf(m[1].slice(0,3).toLowerCase());
-      const d = +m[2], y = +m[3]; if (mo>=0){ const dt=new Date(y,mo,d); if (dt && dt.getMonth()===mo && dt.getDate()===d) return dt; }
-    }
-    m = s.match(/^(\d{1,2})\s+([A-Za-z]+),?\s+(\d{4})$/);
-    if (m){
-      const d = +m[1], mo = MONTHS.indexOf(m[2].slice(0,3).toLowerCase());
-      const y = +m[3]; if (mo>=0){ const dt=new Date(y,mo,d); if (dt && dt.getMonth()===mo && dt.getDate()===d) return dt; }
-    }
-    // 2-digit year M/D/YY (assume 20YY for 00..68, 19YY for 69..99 like JS Date)
-    m = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2})$/);
-    if (m){
-      const mo=+m[1]-1, d=+m[2], yy=+m[3];
-      const y = yy + (yy<=68 ? 2000 : 1900);
-      const dt=new Date(y,mo,d);
-      return (dt && dt.getMonth()===mo && dt.getDate()===d) ? dt : null;
-    }
-    // Fallback: let Date try (last resort)
-    const dt = new Date(s);
-    return isNaN(dt) ? null : dt;
-  }
-  function normalizeDateInput(el){
-    const dt = parseDateSmart(el.value);
-    el.value = dt ? toISODate(dt) : "";
-  }
-
-  /* ====== Rows & recompute ====== */
+  /* Rows */
   function rowEl(){
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td><input class="cell date" type="text" placeholder="YYYY-MM-DD" aria-label="Date"></td>
+      <td><input class="cell textcol" type="text" placeholder="Text/Label"></td>
       <td><input class="cell a" type="number" step="any" placeholder="A" inputmode="decimal" aria-label="A"></td>
       <td><input class="cell b" type="number" step="any" placeholder="B" inputmode="decimal" aria-label="B"></td>
       <td><input class="cell ro c" type="text" placeholder="C" aria-label="C" readonly></td>
@@ -212,35 +140,10 @@
     if (t.classList.contains('a') || t.classList.contains('b')) recomputeRow(t.closest('tr'));
   });
 
-  // Normalize date on blur (typing)
-  tbody.addEventListener('blur', (e)=>{
-    const t = e.target;
-    if (t instanceof HTMLInputElement && t.classList.contains('date')) normalizeDateInput(t);
-  }, true);
-
-  // Powerful paste: paste one or multiple dates (line- or tab-separated)
-  tbody.addEventListener('paste', (e)=>{
-    const t = e.target;
-    if (!(t instanceof HTMLInputElement) || !t.classList.contains('date')) return;
-    e.preventDefault();
-    const text = (e.clipboardData || window.clipboardData).getData('text');
-    if (!text) return;
-
-    const rows = text.replace(/\r/g,'').split(/\n/).filter(Boolean);
-    const startRow = [...tbody.rows].indexOf(t.closest('tr'));
-    for (let i=0; i<rows.length; i++){
-      const r = tbody.rows[startRow + i];
-      if (!r) break;
-      const el = r.querySelector('.date');
-      const dt = parseDateSmart(rows[i].trim());
-      el.value = dt ? toISODate(dt) : ""; // blank if not parseable
-    }
-  });
-
   apply.onclick = ()=> ensureRows(parseInt(rowsInp.value||'1',10));
   clearAB.onclick = ()=> { [...tbody.querySelectorAll('.a,.b,.c,.d,.e')].forEach(el=> el.value=""); };
 
-  /* ====== Column width drag ====== */
+  /* Column width drag */
   let colDrag = null;
   table.addEventListener('mousedown', (e)=>{
     const handle = e.target.closest('.col-resizer');
@@ -263,7 +166,7 @@
     if (!colDrag) return; colDrag = null; document.body.classList.remove('resizing');
   });
 
-  /* ====== Frame edge/corner drag resize ====== */
+  /* Frame edge/corner drag resize */
   let frameDrag = null;
   frame.addEventListener('mousedown', (e)=>{
     const h = e.target.closest('.resize-handle');
