@@ -2,113 +2,732 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Side-by-Side Viewer</title>
+<title>Next Peak/Trough — ZigZag Ensemble + AR(1) Bootstrap</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
-  :root { --split: 50%; }
-  * { box-sizing: border-box; }
-  html, body { height: 100%; margin: 0; }
-  body { font-family: system-ui, Arial, sans-serif; background:#0b0b0c; color:#eaeaea; }
-  .toolbar {
-    display:flex; gap:.5rem; align-items:center; padding:.5rem .75rem; border-bottom:1px solid #222;
-    background:#111; position:sticky; top:0; z-index:2;
+  :root{
+    --bg:#0b1020; --panel:#121a2f; --ink:#e9eefc; --muted:#9fb0d1;
+    --accent:#5aa0ff; --ok:#2bd07e; --warn:#ffd166; --err:#ff6b6b; --hair:rgba(255,255,255,.08);
   }
-  .toolbar button {
-    border:1px solid #2b2b2b; background:#1a1a1a; color:#ddd; padding:.4rem .7rem; border-radius:.5rem; cursor:pointer;
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:radial-gradient(1200px 600px at 80% -200px, #1c2750 0%, #0b1020 40%, #0b1020 100%);
+    color:var(--ink);font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial
   }
-  .toolbar button:active { transform: translateY(1px); }
-  .wrap {
-    position:relative; height: calc(100vh - 48px); /* toolbar ~48px */
-    display:grid; grid-template-columns: var(--split) 8px calc(100% - var(--split) - 8px);
+  .wrap{max-width:1120px;margin:32px auto;padding:0 16px}
+  h1{font-size:24px;margin:0 0 8px}
+  .sub{color:var(--muted);margin:0 0 18px}
+  .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:16px}
+  @media (max-width:980px){.grid{grid-template-columns:1fr}}
+  .card{
+    background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+    border:1px solid var(--hair);
+    border-radius:16px;
+    box-shadow:0 12px 28px rgba(0,0,0,.35)
   }
-  .pane { height:100%; border:none; width:100%; background:#000; }
-  .divider {
-    background:#222; cursor:col-resize; height:100%; width:8px; position:relative;
+  .card h3{margin:0;padding:14px 16px;border-bottom:1px solid var(--hair);font-size:16px}
+  .card .body{padding:14px 16px}
+  label{display:block;font-size:12px;color:var(--muted);margin:8px 0 6px}
+  input{
+    width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--hair);
+    background:#0f162b;color:var(--ink);outline:none
   }
-  .divider::after {
-    content:""; position:absolute; inset:0 2px; border-left:2px solid #2f2f2f; border-right:2px solid #2f2f2f; opacity:.7;
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+  .btn{
+    display:inline-flex;gap:10px;align-items:center;background:var(--accent);color:#06122c;border:none;
+    border-radius:12px;padding:10px 14px;font-weight:700;cursor:pointer;box-shadow:0 8px 18px rgba(90,160,255,.35)
   }
-  /* Mobile: stack vertically */
-  @media (max-width: 800px) {
-    .wrap { grid-template-columns: 100%; grid-template-rows: var(--split) 8px calc(100% - var(--split) - 8px); }
-    .divider { cursor:row-resize; width:100%; height:8px; }
+  .btn:active{transform:translateY(1px)}
+  .note{font-size:12px;color:var(--muted)}
+  .pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#0f162b;border:1px solid var(--hair);font-size:12px;color:var(--muted)}
+  .out{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:#0a1122;border:1px solid var(--hair);
+    border-radius:12px;padding:10px;white-space:pre-wrap
   }
+  .kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px}
+  .kpi .tile{background:#0f162b;border:1px solid var(--hair);border-radius:12px;padding:10px}
+  .kpi .tile b{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+  .kpi .tile span{font-size:16px;font-weight:800}
+  .warn{color:var(--warn)}
+  .err{color:var(--err)}
+  canvas{width:100%;height:260px;background:#091126;border-radius:12px;border:1px solid var(--hair)}
+
+  /* Pretty summary */
+  .pretty{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .stat{background:#0f162b;border:1px solid var(--hair);border-radius:14px;padding:12px 14px}
+  .stat b{display:block;color:var(--muted);font-size:12px;margin-bottom:6px}
+  .stat .big{font-size:22px;font-weight:800;letter-spacing:0.2px}
+  .stat .big.up{color:var(--warn)}
+  .stat .big.down{color:var(--ok)}
 </style>
 </head>
 <body>
-  <div class="toolbar">
-    <strong style="margin-right:auto">Side-by-Side Viewer</strong>
-    <button id="swap">Swap Sides</button>
-    <button id="fleft">Left Fullscreen</button>
-    <button id="fright">Right Fullscreen</button>
-    <button id="reset">Reset Split</button>
+<div style="margin-top:12px;display:flex;gap:10px;align-items:center">
+            <button class="btn" id="runBtn">Load & Predict</button>
+            <span class="note"></span>
+          </div>
+<div>
+              <label>Min days after last sheet date</label>
+              <input id="leadDays" type="number" value="10" />
+            </div>
+<h3>3) Next Extremum (prediction)</h3>
+        <div class="body">
+          <div class="pretty">
+            <div class="stat">
+              <b>Type</b>
+              <div id="prettyType" class="big">—</div>
+            </div>
+            <div class="stat">
+              <b>Time</b>
+              <div id="prettyTime" class="big">—</div>
+            </div>
+            <div class="stat">
+              <b>Price</b>
+              <div id="prettyPrice" class="big">—</div>
+            </div>
+            <div class="stat">
+              <b>Consensus</b>
+              <div id="prettyCons" class="big">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+  <div class="wrap">
+<!-- 4) 10-Day Price Path (from last sheet date) -->
+<div class="card" style="grid-column:1 / -1">
+  <h3>4) 10-Day Price Path (from last sheet date)</h3>
+  <div class="body">
+    <table style="width:100%;border-collapse:separate;border-spacing:0 8px">
+      <thead>
+        <tr>
+          <th style="text-align:left;font-size:12px;color:var(--muted);padding:0 10px">Date</th>
+          <th style="text-align:left;font-size:12px;color:var(--muted);padding:0 10px">Predicted Price</th>
+          <th style="text-align:left;font-size:12px;color:var(--muted);padding:0 10px">State</th>
+        </tr>
+      </thead>
+      <tbody id="tenDayBody"></tbody>
+    </table>
+    <p class="note">Uses the same AR(1) swing model; if a day falls mid-swing, price is interpolated inside that swing.</p>
   </div>
+</div>
 
-  <div class="wrap" id="wrap">
-    <!-- Left / Top -->
-    <iframe class="pane" id="left" src="index1.html" allowfullscreen></iframe>
+    <h1>Next Peak/Trough Predictor</h1>
+    <p class="sub">Apps Script → ZigZag (ensemble) → AR(1) with ridge (rolling, winsorized) → bootstrap to reach LastSheetDate + N days.</p>
 
-    <!-- Divider -->
-    <div class="divider" id="divider" title="Drag to resize"></div>
+    <div class="grid">
+      <div class="card">
+        <h3>1) Connect & Settings</h3>
+        <div class="body">
+          <label>Apps Script endpoint (JSON/JSONP)</label>
+          <input id="apiUrl"
+            value="https://script.google.com/macros/s/AKfycbyF_bYJh4obYnwPDQ3kqXI-4mTw2IbN2c8uXe4qmW4bQvhfnvLVAIgROWIARTlBjkWd/exec" />
 
-    <!-- Right / Bottom -->
-    <iframe class="pane" id="right" src="index2.html" allowfullscreen></iframe>
+          <div class="row3">
+            <div>
+              <label>Base ZigZag δ (%) <span class="pill">default 4</span></label>
+              <input id="delta" type="number" step="0.1" value="4" />
+            </div>
+            
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            <div>
+              <label>Max rows (client-side cap)</label>
+              <input id="maxRows" type="number" value="50000" />
+            </div>
+          </div>
+
+          <div class="row3" style="margin-top:10px">
+            <div>
+              <label>Swings used for fit (rolling)</label>
+              <input id="winSwings" type="number" value="120" />
+            </div>
+            <div>
+              <label>Bootstrap runs</label>
+              <input id="bootRuns" type="number" value="200" />
+            </div>
+            <div>
+              <label>Ridge λ (0.1–1)</label>
+              <input id="ridgeLam" type="number" step="0.1" value="0.4" />
+            </div>
+          </div>
+
+          <div style="margin-top:12px;display:flex;gap:10px;align-items:center">
+            <button class="btn" id="runBtn">Load & Predict</button>
+            <span class="note">Endpoint returns <code>{ data:[{date,value}] }</code>.</span>
+          </div>
+
+          <div class="kpi" id="kpi" style="display:none">
+            <div class="tile"><b>Extrema detected</b><span id="kpiExtrema">—</span></div>
+            <div class="tile"><b>AR pairs used</b><span id="kpiPairs">—</span></div>
+            <div class="tile"><b>Last extremum</b><span id="kpiLast">—</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>2) Results (details)</h3>
+        <div class="body">
+          <div class="out" id="out">Click “Load & Predict”.</div>
+        </div>
+      </div>
+
+      <div class="card" style="grid-column:1 / -1">
+        <h3>3) Next Extremum (prediction)</h3>
+        <div class="body">
+          <div class="pretty">
+            <div class="stat">
+              <b>Type</b>
+              <div id="prettyType" class="big">—</div>
+            </div>
+            <div class="stat">
+              <b>Time</b>
+              <div id="prettyTime" class="big">—</div>
+            </div>
+            <div class="stat">
+              <b>Price</b>
+              <div id="prettyPrice" class="big">—</div>
+            </div>
+            <div class="stat">
+              <b>Consensus</b>
+              <div id="prettyCons" class="big">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="grid-column:1 / -1">
+        <h3>Chart (prices + detected extrema)</h3>
+        <div class="body">
+          <canvas id="chart" width="1000" height="260"></canvas>
+        </div>
+      </div>
+    </div>
   </div>
 
 <script>
-  const root = document.documentElement;
-  const wrap = document.getElementById('wrap');
-  const divider = document.getElementById('divider');
-  const left = document.getElementById('left');
-  const right = document.getElementById('right');
-  const swapBtn = document.getElementById('swap');
-  const fLeftBtn = document.getElementById('fleft');
-  const fRightBtn = document.getElementById('fright');
-  const resetBtn = document.getElementById('reset');
+/* =================== Utilities =================== */
+const fmtDate = d => d instanceof Date ? d.toISOString().slice(0,10) : String(d);
+const daysBetween = (a,b) => (b - a) / (1000*60*60*24);
 
-  const isMobile = () => window.matchMedia("(max-width: 800px)").matches;
+/* JSONP loader (works with your doGet callback) */
+function jsonp(url, timeoutMs=10000){
+  return new Promise((resolve, reject)=>{
+    const cbName = 'cb_' + Math.random().toString(36).slice(2);
+    const cleanup = ()=>{
+      delete window[cbName];
+      script.remove();
+      if (timer) clearTimeout(timer);
+    };
+    window[cbName] = (data)=>{ cleanup(); resolve(data); };
+    const sep = url.includes('?') ? '&' : '?';
+    const script = document.createElement('script');
+    script.src = `${url}${sep}callback=${cbName}`;
+    script.onerror = ()=>{ cleanup(); reject(new Error('JSONP network error')); };
+    document.body.appendChild(script);
+    const timer = setTimeout(()=>{ cleanup(); reject(new Error('JSONP timeout')); }, timeoutMs);
+  });
+}
 
-  // Drag to resize
-  let dragging = false;
-  const startDrag = () => dragging = true;
-  const endDrag = () => dragging = false;
-
-  const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
-
-  const onMove = (e) => {
-    if (!dragging) return;
-    const rect = wrap.getBoundingClientRect();
-    if (!isMobile()) {
-      const x = e.touches ? e.touches[0].clientX : e.clientX;
-      const percent = clamp(((x - rect.left) / rect.width) * 100, 10, 90);
-      root.style.setProperty('--split', percent + '%');
-    } else {
-      const y = e.touches ? e.touches[0].clientY : e.clientY;
-      const percent = clamp(((y - rect.top) / rect.height) * 100, 10, 90);
-      root.style.setProperty('--split', percent + '%');
+/* Fallback: try plain fetch if JSONP fails (in case CORS is already open) */
+async function getDataViaApi(url){
+  try{
+    const data = await jsonp(url);
+    return data;
+  }catch(e1){
+    try{
+      const res = await fetch(url);
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      return await res.json();
+    }catch(e2){
+      throw e1;
     }
-  };
+  }
+}
 
-  divider.addEventListener('mousedown', startDrag);
-  divider.addEventListener('touchstart', startDrag, {passive:true});
-  window.addEventListener('mousemove', onMove);
-  window.addEventListener('touchmove', onMove, {passive:false});
-  window.addEventListener('mouseup', endDrag);
-  window.addEventListener('touchend', endDrag);
+/* =================== Detectors & Stats =================== */
+// Basic ZigZag extrema detector (percentage threshold)
+function zigzagExtrema(series, deltaPct=4){
+  if(series.length<3) return [];
+  const delta = deltaPct/100;
+  let piv = series[0].p;
+  let pivIdx = 0;
+  let trend = 0;
+  let lastExt = {i:0, t: series[0].t, p: series[0].p, type: 'trough'};
+  const out = [];
+  for(let i=1;i<series.length;i++){
+    const pr = series[i].p;
+    if (trend >= 0) { // up/unknown
+      if (pr >= piv) { piv = pr; pivIdx = i; }
+      if (piv > 0 && (piv - pr)/piv >= delta) {
+        const ex = {i: pivIdx, t: series[pivIdx].t, p: series[pivIdx].p, type: 'peak'};
+        if (out.length===0 && lastExt.type === ex.type) out.push(lastExt);
+        out.push(ex);
+        trend = -1; piv = pr; pivIdx = i;
+      }
+    }
+    if (trend <= 0) { // down/unknown
+      if (pr <= piv) { piv = pr; pivIdx = i; }
+      if (pr > 0 && (pr - piv)/piv >= delta) {
+        const ex = {i: pivIdx, t: series[pivIdx].t, p: series[pivIdx].p, type: 'trough'};
+        if (out.length===0 && lastExt.type === ex.type) out.push(lastExt);
+        out.push(ex);
+        trend = +1; piv = pr; pivIdx = i;
+      }
+    }
+  }
+  // Clean alternation & duplicates
+  const cleaned = [];
+  for (const e of out){
+    if (cleaned.length && e.i === cleaned[cleaned.length-1].i) continue;
+    if (cleaned.length && e.type === cleaned[cleaned.length-1].type) continue;
+    cleaned.push(e);
+  }
+  return cleaned;
+}
 
-  // Controls
-  swapBtn.onclick = () => {
-    const lsrc = left.src; left.src = right.src; right.src = lsrc;
+// Ensemble ZigZag: vote across multiple deltas
+function ensembleExtrema(series, deltas=[3,4,5,6]){
+  const all = deltas.map(d => zigzagExtrema(series, d));
+  const votes = new Map();
+  for(const ext of all){
+    for(const e of ext){
+      const key = e.i;
+      if(!votes.has(key)) votes.set(key, []);
+      votes.get(key).push(e);
+    }
+  }
+  const merged = [];
+  for(const [i, arr] of votes.entries()){
+    if(arr.length < 2) continue; // require ≥2 votes for robustness
+    const peaks = arr.filter(x=>x.type==='peak').length;
+    const troughs = arr.length - peaks;
+    const type = (peaks>troughs) ? 'peak' : 'trough';
+    const e0 = arr[0];
+    merged.push({i: Number(i), t:e0.t, p:e0.p, type});
+  }
+  merged.sort((a,b)=>a.i-b.i);
+  const cleaned=[];
+  for(const e of merged){
+    if(cleaned.length && e.type===cleaned.at(-1).type) continue;
+    cleaned.push(e);
+  }
+  return cleaned;
+}
+
+// Winsorize to clamp outliers to quantiles
+function winsorize(arr, pLo=0.10, pHi=0.90){
+  if(arr.length < 5) return arr.slice();
+  const xs = arr.slice().sort((a,b)=>a-b);
+  const q = (p)=> {
+    const pos = (xs.length-1)*p;
+    const lo = Math.floor(pos), hi = Math.ceil(pos);
+    const w = pos - lo;
+    return xs[lo]*(1-w) + xs[hi]*w;
   };
-  fLeftBtn.onclick = () => {
-    root.style.setProperty('--split', '100%');
-  };
-  fRightBtn.onclick = () => {
-    root.style.setProperty('--split', '0%'); // makes right 100%
-  };
-  resetBtn.onclick = () => {
-    root.style.setProperty('--split', '50%');
-  };
+  const lo = q(pLo), hi = q(pHi);
+  return arr.map(v => Math.min(hi, Math.max(lo, v)));
+}
+
+// Ridge-regularized AR(1)
+function olsAR1_ridge(y, x, lambda=0.4){
+  const n = y.length;
+  let sumx=0,sumy=0,sumxx=0,sumxy=0;
+  for(let i=0;i<n;i++){ sumx+=x[i]; sumy+=y[i]; sumxx+=x[i]*x[i]; sumxy+=x[i]*y[i]; }
+  const denom = (n*(sumxx+lambda) - sumx*sumx);
+  if(Math.abs(denom) < 1e-12) return {alpha: NaN, phi: 0};
+  const phi = (n*sumxy - sumx*sumy) / denom;
+  const alpha = (sumy - phi*sumx)/n;
+  return {alpha, phi};
+}
+
+// Build swings with rolling window + winsorization
+function prepareSwings(extrema, windowSwings=120, doWinsor=true){
+  const durs=[], amps=[], dirs=[];
+  for (let k=1;k<extrema.length;k++){
+    const prev=extrema[k-1], cur=extrema[k];
+    durs.push((cur.t - prev.t)/(1000*60*60*24));
+    amps.push(Math.abs(cur.p - prev.p));
+    dirs.push(cur.p - prev.p > 0 ? +1 : -1);
+  }
+  let D=durs, A=amps, R=dirs;
+  if(D.length > windowSwings){
+    D = D.slice(-windowSwings);
+    A = A.slice(-windowSwings);
+    R = R.slice(-windowSwings);
+  }
+  if(doWinsor && D.length>=10){
+    D = winsorize(D, 0.10, 0.90);
+    A = winsorize(A, 0.10, 0.90);
+  }
+  return {durs:D, amps:A, dirs:R};
+}
+
+/* =================== Chart =================== */
+function drawChart(canvas, series, extrema){
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0,0,w,h);
+  if(series.length<2) return;
+
+  const xs = series.map((_,i)=>i);
+  const ys = series.map(d=>d.p);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  const pad = 10;
+  const scaleX = (i)=> pad + (w-2*pad) * (i - xs[0]) / ((xs.at(-1)-xs[0]) || 1);
+  const scaleY = (p)=> h - pad - (h-2*pad) * (p - minY) / ((maxY-minY) || 1);
+
+  // price line
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(scaleX(xs[0]), scaleY(ys[0]));
+  for(let i=1;i<xs.length;i++){ ctx.lineTo(scaleX(xs[i]), scaleY(ys[i])); }
+  ctx.strokeStyle = "#8fb4ff"; ctx.stroke();
+
+  // extrema points
+  for(const e of extrema){
+    ctx.beginPath();
+    ctx.arc(scaleX(e.i), scaleY(e.p), 4.5, 0, Math.PI*2);
+    ctx.fillStyle = (e.type==='peak') ? "#ffd166" : "#2bd07e";
+    ctx.fill();
+    ctx.lineWidth = 1; ctx.strokeStyle = "#0a1122"; ctx.stroke();
+  }
+}
+
+/* =================== App =================== */
+const out = document.getElementById('out');
+const kpi = {
+  box: document.getElementById('kpi'),
+  extrema: document.getElementById('kpiExtrema'),
+  pairs: document.getElementById('kpiPairs'),
+  last: document.getElementById('kpiLast')
+};
+const canvas = document.getElementById('chart');
+
+const prettyType  = document.getElementById('prettyType');
+const prettyTime  = document.getElementById('prettyTime');
+const prettyPrice = document.getElementById('prettyPrice');
+const prettyCons  = document.getElementById('prettyCons');
+
+document.getElementById('runBtn').addEventListener('click', async ()=>{
+  try{
+    out.textContent = 'Loading…';
+    kpi.box.style.display = 'none';
+    prettyType.textContent = '—'; prettyType.classList.remove('up','down');
+    prettyTime.textContent = '—';
+    prettyPrice.textContent = '—';
+    prettyCons.textContent = '—';
+
+    const url = document.getElementById('apiUrl').value.trim();
+    const delta = parseFloat(document.getElementById('delta').value) || 4;
+    const leadDays = Math.max(0, parseInt(document.getElementById('leadDays').value) || 10);
+    const maxRows = parseInt(document.getElementById('maxRows').value) || 5000;
+    const windowSwings = Math.max(20, parseInt(document.getElementById('winSwings').value) || 120);
+    const B = Math.max(50, parseInt(document.getElementById('bootRuns').value) || 200);
+    const ridgeLam = Math.max(0, parseFloat(document.getElementById('ridgeLam').value) || 0.4);
+
+    if(!url){ out.innerHTML = '<span class="err">Please enter your Apps Script URL.</span>'; return; }
+
+    // Pull data
+    const payload = await getDataViaApi(url);
+    if(!payload || !Array.isArray(payload.data)) throw new Error('Invalid response shape (expected {data:[...]})');
+
+    // Map to {t:Date, p:Number}
+    let series = payload.data
+      .map(r=>{
+        const d = new Date(r.date);
+        const p = Number(r.value);
+        return (isFinite(p) && d.toString() !== 'Invalid Date') ? {t:d, p:p} : null;
+      })
+      .filter(Boolean);
+
+    if(series.length > maxRows) series = series.slice(-maxRows);
+    series.sort((a,b)=>a.t-b.t);
+
+    if(series.length < 10){
+      out.innerHTML = `<span class="warn">Only ${series.length} rows found. Add more rows to your sheet.</span>`;
+    }
+
+    // Ensemble extrema using deltas around the base delta
+    const deltas = [Math.max(1, delta-1), delta, delta+1, delta+2];
+    const extrema = ensembleExtrema(series, deltas);
+    drawChart(canvas, series, extrema);
+
+    if(extrema.length < 4){
+      out.innerHTML =
+        `Detected <b>${extrema.length}</b> extrema — need at least <b>4</b> to fit AR(1).
+         Try lowering δ% to detect more turns.`;
+      kpi.box.style.display = 'block';
+      kpi.extrema.textContent = extrema.length;
+      kpi.pairs.textContent = 0;
+      kpi.last.textContent = extrema.length? `${extrema.at(-1).type} @ ${fmtDate(extrema.at(-1).t)}` : '—';
+      return;
+    }
+
+    // Swings (rolling + winsor)
+    const {durs, amps, dirs} = prepareSwings(extrema, windowSwings, true);
+    const dY = durs.slice(1), dX = durs.slice(0,-1);
+    const aY = amps.slice(1), aX = amps.slice(0,-1);
+
+    if(dY.length < 2 || aY.length < 2){
+      out.innerHTML =
+        `We have ${durs.length} swings (need ≥3 to form ≥2 AR pairs).
+         Add more history or reduce δ%.`;
+      kpi.box.style.display = 'block';
+      kpi.extrema.textContent = extrema.length;
+      kpi.pairs.textContent = Math.min(dY.length, aY.length);
+      kpi.last.textContent = `${extrema.at(-1).type} @ ${fmtDate(extrema.at(-1).t)}`;
+      return;
+    }
+
+    // Ridge AR(1)
+    const dAR = olsAR1_ridge(dY, dX, ridgeLam);
+    const aAR = olsAR1_ridge(aY, aX, ridgeLam);
+
+    // Multi-step simulation to reach >= leadDays after last sheet date, with bootstrap
+    const lastExt = extrema.at(-1);
+    const lastSwingDir = dirs.at(-1); // +1 up, -1 down
+
+    const dayMs = 24*60*60*1000;
+    const tMax = series.at(-1).t;
+    const targetMin = new Date(tMax.getTime() + leadDays * dayMs);
+
+    function simulateOnce(dAlpha, dPhi, aAlpha, aPhi){
+      let dPrev = durs.at(-1), aPrev = amps.at(-1);
+      const avgD = durs.reduce((s,v)=>s+v,0)/durs.length || 1;
+      const avgA = amps.reduce((s,v)=>s+v,0)/amps.length || 1;
+      let accTimeMs = 0, accPrice = 0, steps = 0, dir = -lastSwingDir, guard=0;
+      while (lastExt.t.getTime() + accTimeMs <= targetMin.getTime()) {
+        let dNext = dAlpha + dPhi * dPrev;
+        let aNext = aAlpha + aPhi * aPrev;
+        if(!Number.isFinite(dNext) || dNext <= 0) dNext = Math.max(1, avgD);
+        if(!Number.isFinite(aNext) || aNext <= 0) aNext = Math.max(1e-6, avgA);
+        accTimeMs += dNext * dayMs;
+        accPrice  += dir * aNext;
+        dPrev = dNext; aPrev = aNext; dir = -dir; steps++;
+        if(++guard > 10000) break;
+      }
+      const nextTime = new Date(lastExt.t.getTime() + accTimeMs);
+      const nextType = (steps % 2 === 1) ? ((lastExt.type === 'peak') ? 'trough' : 'peak') : lastExt.type;
+      const nextPrice = lastExt.p + accPrice;
+      return {steps, nextTime, nextType, nextPrice};
+    }
+
+    // Bootstrap
+    const preds = [];
+    for(let b=0;b<B;b++){
+      const idxD = Array.from({length:dY.length}, ()=> Math.floor(Math.random()*dY.length));
+      const idxA = Array.from({length:aY.length}, ()=> Math.floor(Math.random()*aY.length));
+      const byD = idxD.map(i=>dY[i]), bxD = idxD.map(i=>dX[i]);
+      const byA = idxA.map(i=>aY[i]), bxA = idxA.map(i=>aX[i]);
+      const dARb = olsAR1_ridge(byD, bxD, ridgeLam);
+      const aARb = olsAR1_ridge(byA, bxA, ridgeLam);
+      preds.push(simulateOnce(dARb.alpha, dARb.phi, aARb.alpha, aARb.phi));
+    }
+
+    // Aggregate (median time/price, majority type, consensus %)
+    const timesSorted = preds.slice().sort((p,q)=>p.nextTime - q.nextTime);
+    const mid = Math.floor(timesSorted.length/2);
+    const medianTime = timesSorted[mid].nextTime;
+    const pricesSorted = preds.map(p=>p.nextPrice).sort((a,b)=>a-b);
+    const medianPrice = pricesSorted[mid];
+
+    const peakCt = preds.filter(p=>p.nextType==='peak').length;
+    const troughCt = preds.length - peakCt;
+    const nextType = (peakCt >= troughCt) ? 'peak' : 'trough';
+    const consensus = Math.round(100 * Math.max(peakCt, troughCt) / preds.length);
+    const stepsMedian = Math.round(preds.map(p=>p.steps).sort((a,b)=>a-b)[mid]);
+
+    // ===== Output =====
+    const lines = [];
+    lines.push(`ZigZag ensemble around δ = ${delta.toFixed(2)}% → used deltas [${deltas.join(', ')}]`);
+    lines.push(`Extrema detected: ${extrema.length}`);
+    lines.push('');
+    lines.push(`Ridge AR(1) fits (y = α + φ x) on last ${durs.length} swings (winsorized)`);
+    lines.push(`• Duration: α = ${dAR.alpha.toFixed(4)}, φ = ${dAR.phi.toFixed(4)}`);
+    lines.push(`• Amplitude: α = ${aAR.alpha.toFixed(4)}, φ = ${aAR.phi.toFixed(4)}`);
+    lines.push('');
+    lines.push(`Next extremum (prediction) — first ≥ ${leadDays} day(s) after last sheet date ${fmtDate(tMax)}:`);
+    lines.push(`• Steps simulated (median): ${stepsMedian}`);
+    lines.push(`• Type: ${nextType.toUpperCase()}  (consensus ~${consensus}%)`);
+    lines.push(`• Time: ${fmtDate(medianTime)}`);
+    lines.push(`• Price: ${medianPrice.toFixed(4)}`);
+    out.textContent = lines.join('\n');
+
+    // Pretty summary
+    prettyType.textContent  = nextType.toUpperCase();
+    prettyType.classList.add(nextType === 'peak' ? 'up' : 'down');
+    prettyTime.textContent  = fmtDate(medianTime);
+    prettyPrice.textContent = Number(medianPrice).toFixed(4);
+    prettyCons.textContent  = `${consensus}%`;
+
+    // KPI
+    kpi.box.style.display = 'block';
+    kpi.extrema.textContent = extrema.length;
+    kpi.pairs.textContent = Math.min(dY.length, aY.length);
+    kpi.last.textContent = `${extrema.at(-1).type} @ ${fmtDate(extrema.at(-1).t)}`;
+
+  }catch(err){
+    out.innerHTML =
+      `<span class="err">Error: ${err.message}</span>\n` +
+      `<span class="note">Tip: endpoint must return <code>{"data":[{"date":..., "value":...}]}</code>. JSONP works via <code>?callback=</code>.</span>`;
+    console.error(err);
+  }
+});
+</script>
+<script>
+// ---------- 10-Day Table Add-on (no changes to main code) ----------
+(function(){
+  const tenDayBody = document.getElementById('tenDayBody');
+  const runBtn = document.getElementById('runBtn');
+
+  // small helpers pulling existing inputs safely
+  function valNum(id, fallback){ const el = document.getElementById(id); return el ? (parseFloat(el.value)||fallback) : fallback; }
+  function valInt(id, fallback){ const el = document.getElementById(id); return el ? (parseInt(el.value)||fallback) : fallback; }
+
+  // Predict price at an arbitrary date using SAME swing model:
+  // From last extremum: simulate AR(1) durations/amplitudes swing-by-swing.
+  function predictPriceAtDate(targetDate, lastExt, lastSwingDir, durs, amps, dAR, aAR){
+    const dayMs = 24*60*60*1000;
+    let t0 = lastExt.t.getTime();
+    let price = lastExt.p;
+    let dPrev = durs.at(-1);
+    let aPrev = amps.at(-1);
+    let dir = -lastSwingDir; // next swing direction
+    const avgD = durs.reduce((s,v)=>s+v,0)/durs.length || 1;
+    const avgA = amps.reduce((s,v)=>s+v,0)/amps.length || 1;
+    let safety=0;
+
+    while(true){
+      // pick AR(1) or plain OLS depending on what's available
+      let dNext = (dAR.alpha ?? 0) + (dAR.phi ?? 0) * dPrev;
+      let aNext = (aAR.alpha ?? 0) + (aAR.phi ?? 0) * aPrev;
+      if(!Number.isFinite(dNext) || dNext <= 0) dNext = Math.max(1, avgD);
+      if(!Number.isFinite(aNext) || aNext <= 0) aNext = Math.max(1e-6, avgA);
+
+      const swingMs = dNext * dayMs;
+      if (t0 + swingMs > targetDate.getTime()) {
+        // target inside this swing: linear interpolation
+        const frac = (targetDate.getTime() - t0) / swingMs; // [0,1)
+        const partial = dir * aNext * Math.max(0, Math.min(1, frac));
+        const state = (dir>0) ? 'rising (toward peak)' : 'falling (toward trough)';
+        return { price: price + partial, state };
+      } else {
+        // consume full swing and continue
+        t0   += swingMs;
+        price+= dir * aNext;
+        dPrev = dNext; aPrev = aNext; dir = -dir;
+      }
+      if(++safety>10000) return { price, state:'stable' };
+    }
+  }
+
+  // A second listener: runs AFTER your original one (since we append it later)
+  runBtn && runBtn.addEventListener('click', async ()=>{
+    try{
+      if(!tenDayBody) return;
+      tenDayBody.innerHTML = ''; // clear
+
+      // Read existing inputs (fall back if some don't exist in your version)
+      const url      = (document.getElementById('apiUrl')?.value || '').trim();
+      const delta    = valNum('delta', 4);
+      const maxRows  = valInt('maxRows', 5000);
+      const winSw    = Math.max(20, valInt('winSwings', 120));   // if not present, uses 120
+      const ridgeLam = Math.max(0,  valNum('ridgeLam', 0.4));    // if not present, uses 0.4
+
+      if(!url) return; // your main code will already show an error
+
+      // Pull data via your existing helper
+      const payload = await getDataViaApi(url);
+      if(!payload || !Array.isArray(payload.data)) return;
+
+      // Map to {t, p}
+      let series = payload.data.map(r=>{
+        const d=new Date(r.date), p=Number(r.value);
+        return (isFinite(p)&&d.toString()!=='Invalid Date') ? {t:d,p:p} : null;
+      }).filter(Boolean);
+      if(series.length > maxRows) series = series.slice(-maxRows);
+      series.sort((a,b)=>a.t-b.t);
+      if(series.length < 3) return;
+
+      // Extrema: use ensembleExtrema if present; otherwise fall back to zigzagExtrema
+      const deltas = [Math.max(1, delta-1), delta, delta+1, delta+2];
+      const extrema = (typeof ensembleExtrema === 'function')
+        ? ensembleExtrema(series, deltas)
+        : zigzagExtrema(series, delta);
+
+      if(extrema.length < 4){ return; } // not enough to fit AR(1)
+
+      // Swings (use your global prepareSwings if present, else minimal local)
+      let durs=[], amps=[], dirs=[];
+      if (typeof prepareSwings === 'function') {
+        const sw = prepareSwings(extrema, winSw, true);
+        durs = sw.durs; amps = sw.amps; dirs = sw.dirs;
+      } else {
+        for (let k=1;k<extrema.length;k++){
+          const prev=extrema[k-1], cur=extrema[k];
+          durs.push((cur.t - prev.t)/(1000*60*60*24));
+          amps.push(Math.abs(cur.p - prev.p));
+          dirs.push(cur.p - prev.p > 0 ? +1 : -1);
+        }
+        if(durs.length > winSw){ durs=durs.slice(-winSw); amps=amps.slice(-winSw); dirs=dirs.slice(-winSw); }
+      }
+      if(durs.length < 3) return;
+
+      const dY = durs.slice(1), dX = durs.slice(0,-1);
+      const aY = amps.slice(1), aX = amps.slice(0,-1);
+      if(dY.length<2 || aY.length<2) return;
+
+      // Fit AR(1) with ridge if available, else plain OLS
+      const fitDur = (typeof olsAR1_ridge === 'function') ? olsAR1_ridge : olsAR1;
+      const fitAmp = (typeof olsAR1_ridge === 'function') ? olsAR1_ridge : olsAR1;
+      const dAR = fitDur(dY, dX, ridgeLam);
+      const aAR = fitAmp(aY, aX, ridgeLam);
+
+      // Anchors
+      const lastExt = extrema.at(-1);
+      const lastSwingDir = dirs.at(-1);         // +1 up, -1 down
+      const dayMs = 24*60*60*1000;
+      const tMax = series.at(-1).t;
+
+      // Build 10 rows: day 1..10 after last sheet date
+      const rows = [];
+      for(let d=1; d<=30; d++){
+        const target = new Date(tMax.getTime() + d*dayMs);
+        const { price: pHat, state } = predictPriceAtDate(target, lastExt, lastSwingDir, durs, amps, dAR, aAR);
+        rows.push({ date: fmtDate(target), price: pHat, state });
+      }
+
+      // Render table
+      tenDayBody.innerHTML = rows.map(r =>
+        `<tr style="background:#0f162b;border:1px solid var(--hair)">
+           <td class="mono" style="padding:10px;border-left:1px solid var(--hair);border-top-left-radius:10px;border-bottom-left-radius:10px">${r.date}</td>
+           <td class="mono" style="padding:10px">${r.price.toFixed(4)}</td>
+           <td style="padding:10px;border-right:1px solid var(--hair);border-top-right-radius:10px;border-bottom-right-radius:10px">${r.state}</td>
+         </tr>`
+      ).join('');
+
+    }catch(e){
+      console.error('10-day table error:', e);
+      if(tenDayBody){
+        tenDayBody.innerHTML = `<tr><td colspan="3" style="padding:10px" class="note">Couldn’t compute 10-day table.</td></tr>`;
+      }
+    }
+  });
+})();
 </script>
 </body>
 </html>
