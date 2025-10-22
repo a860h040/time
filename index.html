@@ -1,1 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Side-by-Side Viewer</title>
+<style>
+  :root { --split: 50%; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { font-family: system-ui, Arial, sans-serif; background:#0b0b0c; color:#eaeaea; }
+  .toolbar {
+    display:flex; gap:.5rem; align-items:center; padding:.5rem .75rem; border-bottom:1px solid #222;
+    background:#111; position:sticky; top:0; z-index:2;
+  }
+  .toolbar button {
+    border:1px solid #2b2b2b; background:#1a1a1a; color:#ddd; padding:.4rem .7rem; border-radius:.5rem; cursor:pointer;
+  }
+  .toolbar button:active { transform: translateY(1px); }
+  .wrap {
+    position:relative; height: calc(100vh - 48px); /* toolbar ~48px */
+    display:grid; grid-template-columns: var(--split) 8px calc(100% - var(--split) - 8px);
+  }
+  .pane { height:100%; border:none; width:100%; background:#000; }
+  .divider {
+    background:#222; cursor:col-resize; height:100%; width:8px; position:relative;
+  }
+  .divider::after {
+    content:""; position:absolute; inset:0 2px; border-left:2px solid #2f2f2f; border-right:2px solid #2f2f2f; opacity:.7;
+  }
+  /* Mobile: stack vertically */
+  @media (max-width: 800px) {
+    .wrap { grid-template-columns: 100%; grid-template-rows: var(--split) 8px calc(100% - var(--split) - 8px); }
+    .divider { cursor:row-resize; width:100%; height:8px; }
+  }
+</style>
+</head>
+<body>
+  <div class="toolbar">
+    <strong style="margin-right:auto">Side-by-Side Viewer</strong>
+    <button id="swap">Swap Sides</button>
+    <button id="fleft">Left Fullscreen</button>
+    <button id="fright">Right Fullscreen</button>
+    <button id="reset">Reset Split</button>
+  </div>
 
+  <div class="wrap" id="wrap">
+    <!-- Left / Top -->
+    <iframe class="pane" id="left" src="index1.html" allowfullscreen></iframe>
+
+    <!-- Divider -->
+    <div class="divider" id="divider" title="Drag to resize"></div>
+
+    <!-- Right / Bottom -->
+    <iframe class="pane" id="right" src="index2.html" allowfullscreen></iframe>
+  </div>
+
+<script>
+  const root = document.documentElement;
+  const wrap = document.getElementById('wrap');
+  const divider = document.getElementById('divider');
+  const left = document.getElementById('left');
+  const right = document.getElementById('right');
+  const swapBtn = document.getElementById('swap');
+  const fLeftBtn = document.getElementById('fleft');
+  const fRightBtn = document.getElementById('fright');
+  const resetBtn = document.getElementById('reset');
+
+  const isMobile = () => window.matchMedia("(max-width: 800px)").matches;
+
+  // Drag to resize
+  let dragging = false;
+  const startDrag = () => dragging = true;
+  const endDrag = () => dragging = false;
+
+  const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+
+  const onMove = (e) => {
+    if (!dragging) return;
+    const rect = wrap.getBoundingClientRect();
+    if (!isMobile()) {
+      const x = e.touches ? e.touches[0].clientX : e.clientX;
+      const percent = clamp(((x - rect.left) / rect.width) * 100, 10, 90);
+      root.style.setProperty('--split', percent + '%');
+    } else {
+      const y = e.touches ? e.touches[0].clientY : e.clientY;
+      const percent = clamp(((y - rect.top) / rect.height) * 100, 10, 90);
+      root.style.setProperty('--split', percent + '%');
+    }
+  };
+
+  divider.addEventListener('mousedown', startDrag);
+  divider.addEventListener('touchstart', startDrag, {passive:true});
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('touchmove', onMove, {passive:false});
+  window.addEventListener('mouseup', endDrag);
+  window.addEventListener('touchend', endDrag);
+
+  // Controls
+  swapBtn.onclick = () => {
+    const lsrc = left.src; left.src = right.src; right.src = lsrc;
+  };
+  fLeftBtn.onclick = () => {
+    root.style.setProperty('--split', '100%');
+  };
+  fRightBtn.onclick = () => {
+    root.style.setProperty('--split', '0%'); // makes right 100%
+  };
+  resetBtn.onclick = () => {
+    root.style.setProperty('--split', '50%');
+  };
+</script>
+</body>
+</html>
