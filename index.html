@@ -3,140 +3,146 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Side-by-Side Viewer</title>
+<title>Three-Up Viewer</title>
 <style>
-  :root { --split: 50%; }
-  * { box-sizing:border-box; }
+  :root { --w1: 33.33%; --w2: 33.33%; }
+  * { box-sizing: border-box; }
   html, body { height:100%; margin:0; }
-  body { font-family:system-ui, Arial, sans-serif; background:#0b0b0c; color:#eaeaea; }
+  body { font-family: system-ui, Arial, sans-serif; background:#0b0b0c; color:#eaeaea; }
   .toolbar {
     display:flex; gap:.5rem; align-items:center; padding:.5rem .75rem; border-bottom:1px solid #222;
     background:#111; position:sticky; top:0; z-index:2; flex-wrap:wrap;
   }
-  .toolbar button, .toolbar select {
+  .toolbar button {
     border:1px solid #2b2b2b; background:#1a1a1a; color:#ddd; padding:.4rem .6rem; border-radius:.5rem; cursor:pointer;
   }
   .toolbar button:active { transform: translateY(1px); }
   .spacer { flex:1; }
+
   .wrap {
     position:relative; height: calc(100vh - 52px);
-    display:grid; grid-template-columns: var(--split) 8px calc(100% - var(--split) - 8px);
+    display:grid;
+    grid-template-columns: var(--w1) 8px var(--w2) 8px calc(100% - var(--w1) - var(--w2) - 16px);
   }
-  .pane { height:100%; border:none; width:100%; background:#000; }
-  .divider { background:#222; cursor:col-resize; height:100%; width:8px; position:relative; }
+  .pane { height:100%; width:100%; border:none; background:#000; }
+  .divider {
+    background:#222; position:relative; cursor:col-resize; width:8px; height:100%;
+  }
   .divider::after { content:""; position:absolute; inset:0 2px; border-left:2px solid #2f2f2f; border-right:2px solid #2f2f2f; opacity:.7; }
-  @media (max-width:800px){
-    .wrap { grid-template-columns:100%; grid-template-rows: var(--split) 8px calc(100% - var(--split) - 8px); }
+
+  /* Mobile: stack three panes vertically with draggable row dividers */
+  @media (max-width: 800px) {
+    .wrap {
+      grid-template-columns: 100%;
+      grid-template-rows: var(--w1) 8px var(--w2) 8px calc(100% - var(--w1) - var(--w2) - 16px);
+    }
     .divider { cursor:row-resize; width:100%; height:8px; }
   }
 </style>
 </head>
 <body>
   <div class="toolbar">
-    <strong>Side-by-Side Viewer</strong>
-    <div style="display:flex; gap:.5rem; align-items:center;">
-      <label>Left:</label>
-      <select id="leftSel">
-        <option value="index1.html">index1.html</option>
-        <option value="index2.html">index2.html</option>
-        <option value="index3.html">index3.html</option>
-      </select>
-      <label>Right:</label>
-      <select id="rightSel">
-        <option value="index2.html">index2.html</option>
-        <option value="index1.html">index1.html</option>
-        <option value="index3.html">index3.html</option>
-      </select>
-    </div>
-
+    <strong>Three-Up Viewer</strong>
     <div class="spacer"></div>
-
-    <button id="preset12">1 | 2</button>
-    <button id="preset13">1 | 3</button>
-    <button id="preset23">2 | 3</button>
-    <button id="swap">Swap</button>
-    <button id="fleft">Left Full</button>
-    <button id="fright">Right Full</button>
-    <button id="reset">50/50</button>
+    <button id="equal">Equal Thirds</button>
+    <button id="fullLeft">Left Full</button>
+    <button id="fullMid">Middle Full</button>
+    <button id="fullRight">Right Full</button>
+    <button id="reset">Reset</button>
   </div>
 
   <div class="wrap" id="wrap">
-    <iframe class="pane" id="left"  src="index1.html" allowfullscreen></iframe>
-    <div class="divider" id="divider" title="Drag to resize"></div>
-    <iframe class="pane" id="right" src="index2.html" allowfullscreen></iframe>
+    <!-- Left pane -->
+    <iframe class="pane" id="left" src="index1.html" allowfullscreen></iframe>
+    <!-- Divider 1 -->
+    <div class="divider" id="div1" title="Drag to resize"></div>
+    <!-- Middle pane -->
+    <iframe class="pane" id="mid" src="index2.html" allowfullscreen></iframe>
+    <!-- Divider 2 -->
+    <div class="divider" id="div2" title="Drag to resize"></div>
+    <!-- Right pane -->
+    <iframe class="pane" id="right" src="index3.html" allowfullscreen></iframe>
   </div>
 
 <script>
+(function(){
   const root = document.documentElement;
   const wrap = document.getElementById('wrap');
-  const divider = document.getElementById('divider');
-  const left = document.getElementById('left');
-  const right = document.getElementById('right');
-
-  const leftSel = document.getElementById('leftSel');
-  const rightSel = document.getElementById('rightSel');
-
-  const preset12 = document.getElementById('preset12');
-  const preset13 = document.getElementById('preset13');
-  const preset23 = document.getElementById('preset23');
-  const swapBtn  = document.getElementById('swap');
-  const fLeftBtn = document.getElementById('fleft');
-  const fRightBtn= document.getElementById('fright');
+  const div1 = document.getElementById('div1');
+  const div2 = document.getElementById('div2');
+  const equalBtn = document.getElementById('equal');
+  const fullLeftBtn = document.getElementById('fullLeft');
+  const fullMidBtn = document.getElementById('fullMid');
+  const fullRightBtn = document.getElementById('fullRight');
   const resetBtn = document.getElementById('reset');
 
-  const isMobile = () => window.matchMedia("(max-width:800px)").matches;
+  const isMobile = () => window.matchMedia('(max-width:800px)').matches;
   const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
 
-  // Drag to resize
-  let dragging = false;
-  const startDrag = () => dragging = true;
-  const endDrag   = () => dragging = false;
-  const onMove = (e) => {
-    if (!dragging) return;
+  // Two resizable boundaries: w1 (left size %), w2 (middle size %)
+  // Right = 100 - w1 - w2 (minus divider px, handled visually).
+  function setW1(pct) {
+    const w2 = getW2();
+    const maxW1 = 100 - w2 - 10; // keep right ≥10%
+    const v = clamp(pct, 10, maxW1);
+    root.style.setProperty('--w1', v + '%');
+  }
+  function setW2(pct) {
+    const w1 = getW1();
+    const maxW2 = 100 - w1 - 10; // keep right ≥10%
+    const v = clamp(pct, 10, maxW2);
+    root.style.setProperty('--w2', v + '%');
+  }
+  function getW1() { return parseFloat(getComputedStyle(root).getPropertyValue('--w1')); }
+  function getW2() { return parseFloat(getComputedStyle(root).getPropertyValue('--w2')); }
+
+  let dragging = null; // 'div1' or 'div2'
+
+  function startDrag(which){ dragging = which; }
+  function endDrag(){ dragging = null; }
+
+  function onMove(e){
+    if(!dragging) return;
     const rect = wrap.getBoundingClientRect();
     if (!isMobile()) {
       const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
-      const pct = clamp((x / rect.width) * 100, 10, 90);
-      root.style.setProperty('--split', pct + '%');
+      const pct = (x / rect.width) * 100;
+      if (dragging === 'div1') {
+        // div1 controls boundary between left and middle: set w1
+        setW1(pct);
+      } else if (dragging === 'div2') {
+        // div2 controls boundary between middle and right: set (w1 + w2)
+        // Convert absolute position to middle width: w2 = pct - w1
+        const w1 = getW1();
+        setW2(pct - w1);
+      }
     } else {
       const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
-      const pct = clamp((y / rect.height) * 100, 10, 90);
-      root.style.setProperty('--split', pct + '%');
+      const pct = (y / rect.height) * 100;
+      if (dragging === 'div1') setW1(pct);
+      else if (dragging === 'div2') {
+        const w1 = getW1();
+        setW2(pct - w1);
+      }
     }
-  };
-  divider.addEventListener('mousedown', startDrag);
-  divider.addEventListener('touchstart', startDrag, {passive:true});
+  }
+
+  div1.addEventListener('mousedown', () => startDrag('div1'));
+  div2.addEventListener('mousedown', () => startDrag('div2'));
+  div1.addEventListener('touchstart', () => startDrag('div1'), {passive:true});
+  div2.addEventListener('touchstart', () => startDrag('div2'), {passive:true});
   window.addEventListener('mousemove', onMove);
   window.addEventListener('touchmove', onMove, {passive:false});
   window.addEventListener('mouseup', endDrag);
   window.addEventListener('touchend', endDrag);
 
-  // Dropdown bindings
-  function applySelects() {
-    left.src  = leftSel.value;
-    right.src = rightSel.value;
-  }
-  leftSel.addEventListener('change', applySelects);
-  rightSel.addEventListener('change', applySelects);
-
-  // Presets
-  preset12.onclick = () => { leftSel.value = 'index1.html'; rightSel.value = 'index2.html'; applySelects(); };
-  preset13.onclick = () => { leftSel.value = 'index1.html'; rightSel.value = 'index3.html'; applySelects(); };
-  preset23.onclick = () => { leftSel.value = 'index2.html'; rightSel.value = 'index3.html'; applySelects(); };
-
-  // Utilities
-  swapBtn.onclick  = () => {
-    const lsrc = left.src, lsel = leftSel.value;
-    left.src = right.src; right.src = lsrc;
-    leftSel.value = rightSel.value; rightSel.value = lsel;
-  };
-  fLeftBtn.onclick = () => root.style.setProperty('--split', '100%');
-  fRightBtn.onclick= () => root.style.setProperty('--split', '0%');
-  resetBtn.onclick = () => root.style.setProperty('--split', '50%');
-
-  // Default selection mirrors initial iframes
-  leftSel.value = 'index1.html';
-  rightSel.value = 'index2.html';
+  // Controls
+  equalBtn.onclick = () => { root.style.setProperty('--w1','33.33%'); root.style.setProperty('--w2','33.33%'); };
+  fullLeftBtn.onclick = () => { root.style.setProperty('--w1','100%'); root.style.setProperty('--w2','0%'); };
+  fullMidBtn.onclick  = () => { root.style.setProperty('--w1','0%');   root.style.setProperty('--w2','100%'); };
+  fullRightBtn.onclick= () => { root.style.setProperty('--w1','0%');   root.style.setProperty('--w2','0%');   };
+  resetBtn.onclick    = () => { root.style.setProperty('--w1','33.33%'); root.style.setProperty('--w2','33.33%'); };
+})();
 </script>
 </body>
 </html>
