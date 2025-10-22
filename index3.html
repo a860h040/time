@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Model Fix Calculator (A/B → C/D/E)</title>
+<style>
+  :root {
+    --bg:#0b0b0c; --card:#121214; --grid:#222; --text:#eaeaea; --muted:#a8a8a8; --accent:#4ea3ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font-family:system-ui, Arial, sans-serif; }
+  header { padding:12px 16px; border-bottom:1px solid var(--grid); background:#101013; position:sticky; top:0; z-index:2; }
+  h1 { margin:0; font-size:18px; }
+  .sub { color:var(--muted); font-size:12px; margin-top:4px; }
+  .wrap { padding:16px; }
+  .toolbar { display:flex; gap:8px; align-items:center; margin-bottom:10px; flex-wrap:wrap; }
+  button {
+    background:var(--card); color:var(--text); border:1px solid var(--grid);
+    padding:8px 12px; border-radius:8px; cursor:pointer;
+  }
+  button:hover { border-color:var(--accent); }
+  .sheet {
+    width:100%; overflow:auto; border:1px solid var(--grid); border-radius:10px; background:var(--card);
+  }
+  table { border-collapse:collapse; width:100%; min-width:720px; }
+  thead th {
+    position:sticky; top:0; background:#17171a; border-bottom:1px solid var(--grid);
+    padding:10px; text-align:left; font-weight:600;
+  }
+  tbody td { border-top:1px solid var(--grid); padding:0; }
+  .rownum { width:64px; color:var(--muted); text-align:center; padding:10px !important; }
+  .cell { padding:0; }
+  input.cell-input {
+    width:100%; padding:10px 12px; background:transparent; border:none; outline:none; color:var(--text);
+    font:inherit; text-align:right;
+  }
+  .readonly {
+    background:rgba(255,255,255,0.03);
+    color:#dcdcdc;
+  }
+  .hint { color:var(--muted); font-size:12px; margin-top:6px; }
+  .tight { width: 120px; }
+  .wide { width: 200px; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Model Fix Calculator</h1>
+    <div class="sub">Enter <strong>A</strong> and <strong>B</strong>. Columns <strong>C</strong>, <strong>D</strong>, and <strong>E</strong> compute automatically.</div>
+  </header>
+
+  <div class="wrap">
+    <div class="toolbar">
+      <button id="add1">+ Add 1 row</button>
+      <button id="add10">+ Add 10 rows</button>
+      <button id="clear">Clear all inputs</button>
+      <span class="hint">C = 0.543·A + 0.457·B &nbsp;|&nbsp; 
+        D = 12542.898914·A + 11420.962628·B − 109.512226·A² − 113.529363·B² − 673.234821·A·B − 2.044843·A³ − 0.046012·B³ + 8.490782·A²·B + 4.692059·A·B² − 212212.65665 &nbsp;|&nbsp;
+        E = 0.964·A + 0.036·B − 0.695
+      </span>
+    </div>
+
+    <div class="sheet">
+      <table id="grid" aria-label="Model Fix Grid">
+        <thead>
+          <tr>
+            <th class="rownum">Row</th>
+            <th class="wide">Model 1 (A)</th>
+            <th class="wide">Model 2 (B)</th>
+            <th class="wide">Fix1 (C)</th>
+            <th class="wide">Fix2 (D)</th>
+            <th class="wide">Fix3 (E)</th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <!-- Rows will be inserted here -->
+        </tbody>
+      </table>
+    </div>
+
+    <div class="hint">Tip: Leave A or B blank to clear computed cells in that row.</div>
+  </div>
+
+<script>
+(function(){
+  const tbody = document.getElementById('tbody');
+  const add1 = document.getElementById('add1');
+  const add10 = document.getElementById('add10');
+  const clearBtn = document.getElementById('clear');
+
+  // Formatting helper
+  function fmt(n) {
+    if (!isFinite(n)) return "";
+    // Show up to 6 decimals; trim trailing zeros
+    const s = n.toFixed(6);
+    return s.replace(/\.?0+$/,'');
+  }
+
+  function compute(A, B) {
+    // Return {C, D, E} given A, B (numbers)
+    const C = 0.543 * A + 0.457 * B;
+
+    const D =
+      12542.898914 * A +
+      11420.962628 * B -
+      109.512226   * Math.pow(A, 2) -
+      113.529363   * Math.pow(B, 2) -
+      673.234821   * A * B -
+      2.044843     * Math.pow(A, 3) -
+      0.046012     * Math.pow(B, 3) +
+      8.490782     * Math.pow(A, 2) * B +
+      4.692059     * A * Math.pow(B, 2) -
+      212212.65665;
+
+    const E = 0.964 * A + 0.036 * B - 0.695;
+
+    return { C, D, E };
+  }
+
+  function rowTemplate(rowIndex) {
+    // Row number starts at 2 (Excel-style: first data row is 2)
+    const excelRow = rowIndex + 2;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="rownum">${excelRow}</td>
+      <td class="cell"><input class="cell-input a" type="number" step="any" placeholder="A${excelRow}" inputmode="decimal" aria-label="A${excelRow}"></td>
+      <td class="cell"><input class="cell-input b" type="number" step="any" placeholder="B${excelRow}" inputmode="decimal" aria-label="B${excelRow}"></td>
+      <td class="cell"><input class="cell-input readonly c" type="text" placeholder="C${excelRow}" aria-label="C${excelRow}" readonly></td>
+      <td class="cell"><input class="cell-input readonly d" type="text" placeholder="D${excelRow}" aria-label="D${excelRow}" readonly></td>
+      <td class="cell"><input class="cell-input readonly e" type="text" placeholder="E${excelRow}" aria-label="E${excelRow}" readonly></td>
+    `;
+    return tr;
+  }
+
+  function addRows(n=1) {
+    const start = tbody.children.length;
+    for (let i=0; i<n; i++) {
+      tbody.appendChild(rowTemplate(start + i));
+    }
+  }
+
+  function recomputeRow(tr) {
+    const aEl = tr.querySelector('input.a');
+    const bEl = tr.querySelector('input.b');
+    const cEl = tr.querySelector('input.c');
+    const dEl = tr.querySelector('input.d');
+    const eEl = tr.querySelector('input.e');
+
+    const A = parseFloat(aEl.value);
+    const B = parseFloat(bEl.value);
+    if (isNaN(A) || isNaN(B)) {
+      cEl.value = dEl.value = eEl.value = "";
+      return;
+    }
+    const { C, D, E } = compute(A, B);
+    cEl.value = fmt(C);
+    dEl.value = fmt(D);
+    eEl.value = fmt(E);
+  }
+
+  // Event delegation: compute on any input in A/B
+  tbody.addEventListener('input', (e) => {
+    const target = e.target;
+    if (!(target instanceof HTMLInputElement)) return;
+    if (!target.classList.contains('a') && !target.classList.contains('b')) return;
+    recomputeRow(target.closest('tr'));
+  });
+
+  add1.onclick  = () => addRows(1);
+  add10.onclick = () => addRows(10);
+
+  clearBtn.onclick = () => {
+    [...tbody.querySelectorAll('input.a, input.b, input.c, input.d, input.e')].forEach(el => el.value = "");
+  };
+
+  // Start with a few rows
+  addRows(5);
+})();
+</script>
+</body>
+</html>
