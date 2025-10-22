@@ -3,84 +3,98 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Model Fix Calculator — Dates + Adjustable Table</title>
+<title>Model Fix Calculator — Dates + Drag Resize</title>
 <style>
   :root{
     --bg:#0b0b0c; --card:#121214; --grid:#222; --text:#eaeaea; --muted:#a8a8a8; --accent:#4ea3ff;
     --fs:14px;         /* font size */
-    --rowpad:10px;     /* vertical padding in cells */
-    --w-date:180px;    /* column widths */
-    --w-col:200px;
-    --zoom:1;          /* overall zoom */
+    --rowpad:10px;     /* vertical padding */
+    --w-date:180px;    /* default date width */
+    --w-col:200px;     /* default width for other cols */
   }
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,Arial,sans-serif;font-size:var(--fs)}
   header{padding:12px 16px;border-bottom:1px solid var(--grid);background:#101013;position:sticky;top:0;z-index:2}
   h1{margin:0;font-size:18px}
   .sub{color:var(--muted);font-size:12px;margin-top:4px}
-  .wrap{padding:16px}
+  .wrap{padding:16px;display:flex;flex-direction:column;gap:12px}
+
   .panel{
-    display:flex;flex-wrap:wrap;gap:8px;align-items:end;margin-bottom:12px;padding:10px;border:1px solid var(--grid);
+    display:flex;flex-wrap:wrap;gap:8px;align-items:end;padding:10px;border:1px solid var(--grid);
     border-radius:10px;background:var(--card)
   }
   .field{display:flex;flex-direction:column;gap:4px}
   .field label{font-size:12px;color:var(--muted)}
-  .field input[type="number"], .field input[type="range"]{
+  .field input[type="number"]{
     background:#151518;border:1px solid #2a2a2a;color:var(--text);padding:6px 8px;border-radius:8px;min-width:80px
   }
   .panel button{
     background:#1a1a1a;border:1px solid #2b2b2b;color:#ddd;padding:8px 12px;border-radius:8px;cursor:pointer
   }
   .panel button:hover{border-color:var(--accent)}
-  .sheet-outer{transform:scale(var(--zoom));transform-origin:top left}
-  .sheet{width:100%;overflow:auto;border:1px solid var(--grid);border-radius:10px;background:var(--card)}
+
+  /* Resizable container (drag from bottom-right or edges) */
+  .sheet-outer{
+    border:1px solid var(--grid);border-radius:10px;background:var(--card);
+    padding:8px; overflow:auto; resize:both; min-width:400px; min-height:260px;
+  }
+  .sheet{width:100%;overflow:auto;border:1px solid var(--grid);border-radius:8px;background:#0f0f12}
+
   table{border-collapse:collapse;width:100%;min-width:920px}
   thead th{
     position:sticky;top:0;background:#17171a;border-bottom:1px solid var(--grid);
-    padding:10px;text-align:left;font-weight:600
+    padding:10px;text-align:left;font-weight:600;white-space:nowrap;
+    position:relative; /* for resizer handle */
   }
-  th.date{width:var(--w-date)}
-  th.col{width:var(--w-col)}
+  th[data-key="date"]{width:var(--w-date)}
+  th:not([data-key="date"]){width:var(--w-col)}
+
+  /* Column resizer handle */
+  .resizer{
+    position:absolute;top:0;right:0;width:6px;height:100%;cursor:col-resize;
+    background:transparent;
+  }
+  .resizer::after{
+    content:"";position:absolute;inset:0 2px;border-right:2px solid #2d2d2d;opacity:.7;
+  }
+  .resizing{user-select:none;cursor:col-resize}
+
   tbody td{border-top:1px solid var(--grid);padding:0}
   input.cell, input[type="date"]{
     width:100%;padding:var(--rowpad) 12px;background:transparent;border:none;outline:none;color:var(--text);font:inherit;text-align:right
   }
   input[type="date"]{text-align:left}
   .ro{background:rgba(255,255,255,0.04);color:#dcdcdc}
-  .hint{color:var(--muted);font-size:12px;margin-top:6px}
+  .hint{color:var(--muted);font-size:12px}
 </style>
 </head>
 <body>
 <header>
   <h1>Model Fix Calculator</h1>
-  <div class="sub">First column is <strong>Date</strong>. Change any date → rows below auto-increment by 1 day. Enter <strong>A</strong> and <strong>B</strong>; <strong>C</strong>, <strong>D</strong>, <strong>E</strong> calculate automatically.</div>
+  <div class="sub">Edit any <strong>Date</strong> → rows below auto-fill to +1 day each. Enter <strong>A</strong> and <strong>B</strong>; <strong>C/D/E</strong> compute automatically. Drag edges to resize the table, and drag header edges to resize columns.</div>
 </header>
 
 <div class="wrap">
-  <!-- Adjustable parameters -->
-  <div class="panel" id="panel">
+  <!-- Minimal controls kept: rows + quick buttons -->
+  <div class="panel">
     <div class="field"><label for="rows">Rows</label><input id="rows" type="number" value="7" min="1" step="1"></div>
-    <div class="field"><label for="fs">Font (px)</label><input id="fs" type="number" value="14" min="10" max="24" step="1"></div>
-    <div class="field"><label for="rh">Row padding (px)</label><input id="rh" type="number" value="10" min="4" max="24" step="1"></div>
-    <div class="field"><label for="wdate">Date width (px)</label><input id="wdate" type="number" value="180" min="100" max="400" step="10"></div>
-    <div class="field"><label for="wcol">Other cols width (px)</label><input id="wcol" type="number" value="200" min="120" max="500" step="10"></div>
-    <div class="field" style="min-width:180px"><label for="zoom">Zoom</label><input id="zoom" type="range" value="1" min="0.7" max="1.5" step="0.01"></div>
     <button id="apply">Apply</button>
     <button id="setToday">Set first date = today</button>
     <button id="clearAB">Clear A/B/C/D/E</button>
   </div>
 
+  <!-- Resizable container -->
   <div class="sheet-outer">
     <div class="sheet">
       <table id="grid" aria-label="Model Fix Grid">
         <thead>
           <tr>
-            <th class="date">Date</th>
-            <th class="col">Model 1 (A)</th>
-            <th class="col">Model 2 (B)</th>
-            <th class="col">Fix1 (C)</th>
-            <th class="col">Fix2 (D)</th>
-            <th class="col">Fix3 (E)</th>
+            <th data-key="date">Date <span class="resizer" data-col="date" title="Drag to resize column"></span></th>
+            <th data-key="A">Model 1 (A) <span class="resizer" data-col="A" title="Drag to resize column"></span></th>
+            <th data-key="B">Model 2 (B) <span class="resizer" data-col="B" title="Drag to resize column"></span></th>
+            <th data-key="C">Fix1 (C) <span class="resizer" data-col="C" title="Drag to resize column"></span></th>
+            <th data-key="D">Fix2 (D) <span class="resizer" data-col="D" title="Drag to resize column"></span></th>
+            <th data-key="E">Fix3 (E) <span class="resizer" data-col="E" title="Drag to resize column"></span></th>
           </tr>
         </thead>
         <tbody id="tbody"></tbody>
@@ -88,7 +102,7 @@
     </div>
   </div>
 
-  <div class="hint">
+  <div class="hint" style="margin-top:6px">
     C = 0.543·A + 0.457·B &nbsp;|&nbsp;
     D = 12542.898914·A + 11420.962628·B − 109.512226·A² − 113.529363·B² − 673.234821·A·B − 2.044843·A³ − 0.046012·B³ + 8.490782·A²·B + 4.692059·A·B² − 212212.65665 &nbsp;|&nbsp;
     E = 0.964·A + 0.036·B − 0.695
@@ -98,19 +112,12 @@
 <script>
 (function(){
   const tbody = document.getElementById('tbody');
-
-  // Panel refs
   const rowsInput = document.getElementById('rows');
-  const fsInput   = document.getElementById('fs');
-  const rhInput   = document.getElementById('rh');
-  const wdateInput= document.getElementById('wdate');
-  const wcolInput = document.getElementById('wcol');
-  const zoomInput = document.getElementById('zoom');
   const applyBtn  = document.getElementById('apply');
   const setToday  = document.getElementById('setToday');
   const clearAB   = document.getElementById('clearAB');
 
-  // Helpers
+  /* ---------- Helpers ---------- */
   const dayMs = 24*60*60*1000;
   const toISODate = d => new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
   const parseDate = s => { const d = new Date(s); return isNaN(d)?null:d; };
@@ -141,22 +148,13 @@
     return tr;
   }
 
-  function setCSSVars(){
-    document.documentElement.style.setProperty('--fs', fsInput.value+'px');
-    document.documentElement.style.setProperty('--rowpad', rhInput.value+'px');
-    document.documentElement.style.setProperty('--w-date', wdateInput.value+'px');
-    document.documentElement.style.setProperty('--w-col', wcolInput.value+'px');
-    document.documentElement.style.setProperty('--zoom', zoomInput.value);
-  }
-
   function ensureRows(n){
     n = Math.max(1, Math.floor(n));
-    rowsInput.value = n;
     const cur = tbody.rows.length;
     if (n > cur){
       for (let i=0;i<n-cur;i++) tbody.appendChild(rowEl());
-      // continue dates from last known
-      cascadeDatesFrom(Math.max(0, cur-1), true);
+      // If we have a date in the last existing row, continue the sequence
+      if (cur > 0) cascadeDownFrom(cur-1, true);
     } else if (n < cur){
       for (let i=0;i<cur-n;i++) tbody.removeChild(tbody.lastElementChild);
     }
@@ -180,22 +178,23 @@
 
   function recomputeAll(){ [...tbody.rows].forEach(recomputeRow); }
 
-  // Cascade dates: from index i downward; if onlyFillBlanks = true, don't overwrite existing dates
-  function cascadeDatesFrom(i, onlyFillBlanks=false){
+  /* === Robust cascading: edit row i → strictly set dates for rows i+1..end to prev+1d === */
+  function cascadeDownFrom(i, onlyFillBlanks=false){
     const rows = [...tbody.rows];
     if (!rows.length) return;
     i = Math.max(0, Math.min(i, rows.length-1));
 
-    // Establish base date at i (use given, or infer from neighbors, or today)
-    let baseStr = rows[i].querySelector('.date').value;
-    let base = parseDate(baseStr);
+    const baseInput = rows[i].querySelector('.date');
+    let base = parseDate(baseInput.value);
+
+    // If base missing, try to synthesize (from above or below), else set today
     if (!base){
-      // try above
+      // above
       for (let k=i-1;k>=0;k--){
         const d = parseDate(rows[k].querySelector('.date').value);
         if (d){ base = new Date(d.getTime() + (i-k)*dayMs); break; }
       }
-      // try below
+      // below
       if (!base){
         for (let k=i+1;k<rows.length;k++){
           const d = parseDate(rows[k].querySelector('.date').value);
@@ -203,21 +202,24 @@
         }
       }
       if (!base) base = new Date();
-      rows[i].querySelector('.date').value = toISODate(base);
+      baseInput.value = toISODate(base);
+    } else {
+      baseInput.value = toISODate(base); // normalize to ISO (timezone-safe)
     }
 
-    // Fill downward
+    // Fill strictly downward
+    let prev = parseDate(baseInput.value);
     for (let r=i+1;r<rows.length;r++){
-      const prevDate = parseDate(rows[r-1].querySelector('.date').value);
-      if (!prevDate) break;
-      const tgt = rows[r].querySelector('.date');
-      if (!onlyFillBlanks || !tgt.value){
-        tgt.value = toISODate(new Date(prevDate.getTime()+dayMs));
+      const target = rows[r].querySelector('.date');
+      if (!onlyFillBlanks || !target.value){
+        const next = new Date(prev.getTime()+dayMs);
+        target.value = toISODate(next);
       }
+      prev = parseDate(rows[r].querySelector('.date').value) || prev;
     }
   }
 
-  // Events
+  /* ---------- Events ---------- */
   tbody.addEventListener('input', (e)=>{
     const t = e.target;
     if (!(t instanceof HTMLInputElement)) return;
@@ -225,6 +227,8 @@
       recomputeRow(t.closest('tr'));
     }
   });
+
+  // Date change → normalize, then cascade down strictly (+1 day per row)
   tbody.addEventListener('change', (e)=>{
     const t = e.target;
     if (!(t instanceof HTMLInputElement)) return;
@@ -232,34 +236,64 @@
       const tr = t.closest('tr');
       const idx = [...tbody.rows].indexOf(tr);
       const d = parseDate(t.value);
-      if (!d){ t.value=""; return; }
-      t.value = toISODate(d);           // normalize
-      cascadeDatesFrom(idx, false);     // push downstream
+      t.value = d ? toISODate(d) : ""; // normalize or clear
+      cascadeDownFrom(idx, false);
     }
   });
 
+  // Panel buttons
   applyBtn.onclick = ()=>{
-    setCSSVars();
     ensureRows(parseInt(rowsInput.value||'1',10));
   };
   setToday.onclick = ()=>{
     if (!tbody.rows.length) ensureRows(1);
-    const first = tbody.rows[0].querySelector('.date');
-    first.value = toISODate(new Date());
-    cascadeDatesFrom(0,false);
+    tbody.rows[0].querySelector('.date').value = toISODate(new Date());
+    cascadeDownFrom(0,false);
   };
   clearAB.onclick = ()=>{
     [...tbody.querySelectorAll('.a,.b,.c,.d,.e')].forEach(el=> el.value="");
   };
 
-  // Init
-  setCSSVars();
+  /* ---------- Column resize by mouse drag ---------- */
+  const table = document.getElementById('grid');
+  let resizing = null; // { th, startX, startW }
+  function onDown(e){
+    const handle = e.target.closest('.resizer');
+    if (!handle) return;
+    const th = handle.parentElement;
+    resizing = { th, startX: e.clientX, startW: th.getBoundingClientRect().width };
+    document.body.classList.add('resizing');
+    e.preventDefault();
+  }
+  function onMove(e){
+    if (!resizing) return;
+    const dx = e.clientX - resizing.startX;
+    const newW = Math.max(100, Math.round(resizing.startW + dx));
+    // Fix width of this th and corresponding column cells
+    resizing.th.style.width = newW + 'px';
+    const idx = [...resizing.th.parentElement.children].indexOf(resizing.th);
+    // Set inline width on all tds for this column (keeps layout consistent)
+    [...table.querySelectorAll(`tbody tr td:nth-child(${idx+1})`)]
+      .forEach(td => td.style.width = newW + 'px');
+  }
+  function onUp(){
+    if (!resizing) return;
+    resizing = null;
+    document.body.classList.remove('resizing');
+  }
+  table.addEventListener('mousedown', onDown);
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', onUp);
+
+  /* ---------- Init ---------- */
   ensureRows(parseInt(rowsInput.value,10));
   // Start with first date = today and cascade
   if (tbody.rows.length){
     tbody.rows[0].querySelector('.date').value = toISODate(new Date());
-    cascadeDatesFrom(0,false);
+    cascadeDownFrom(0,false);
   }
+  // Keep computed cols blank until A/B provided
+  recomputeAll();
 })();
 </script>
 </body>
