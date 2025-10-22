@@ -3,11 +3,9 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Model Fix Calculator (A/B → C/D/E)</title>
+<title>Model Fix Calculator with Cascading Dates</title>
 <style>
-  :root {
-    --bg:#0b0b0c; --card:#121214; --grid:#222; --text:#eaeaea; --muted:#a8a8a8; --accent:#4ea3ff;
-  }
+  :root { --bg:#0b0b0c; --card:#121214; --grid:#222; --text:#eaeaea; --muted:#a8a8a8; --accent:#4ea3ff; }
   * { box-sizing: border-box; }
   html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font-family:system-ui, Arial, sans-serif; }
   header { padding:12px 16px; border-bottom:1px solid var(--grid); background:#101013; position:sticky; top:0; z-index:2; }
@@ -20,42 +18,39 @@
     padding:8px 12px; border-radius:8px; cursor:pointer;
   }
   button:hover { border-color:var(--accent); }
-  .sheet {
-    width:100%; overflow:auto; border:1px solid var(--grid); border-radius:10px; background:var(--card);
-  }
-  table { border-collapse:collapse; width:100%; min-width:720px; }
+  .sheet { width:100%; overflow:auto; border:1px solid var(--grid); border-radius:10px; background:var(--card); }
+  table { border-collapse:collapse; width:100%; min-width:820px; }
   thead th {
     position:sticky; top:0; background:#17171a; border-bottom:1px solid var(--grid);
     padding:10px; text-align:left; font-weight:600;
   }
   tbody td { border-top:1px solid var(--grid); padding:0; }
-  .rownum { width:64px; color:var(--muted); text-align:center; padding:10px !important; }
   .cell { padding:0; }
-  input.cell-input {
+  input.cell-input, input[type="date"] {
     width:100%; padding:10px 12px; background:transparent; border:none; outline:none; color:var(--text);
     font:inherit; text-align:right;
   }
-  .readonly {
-    background:rgba(255,255,255,0.03);
-    color:#dcdcdc;
-  }
+  input[type="date"] { text-align:left; }
+  .readonly { background:rgba(255,255,255,0.03); color:#dcdcdc; }
   .hint { color:var(--muted); font-size:12px; margin-top:6px; }
-  .tight { width: 120px; }
   .wide { width: 200px; }
+  .datecol { width: 200px; }
 </style>
 </head>
 <body>
   <header>
     <h1>Model Fix Calculator</h1>
-    <div class="sub">Enter <strong>A</strong> and <strong>B</strong>. Columns <strong>C</strong>, <strong>D</strong>, and <strong>E</strong> compute automatically.</div>
+    <div class="sub">Edit any <strong>Date</strong>—all rows below it shift by +1 day each. Enter <strong>A</strong> and <strong>B</strong>; <strong>C</strong>, <strong>D</strong>, <strong>E</strong> auto-calculate.</div>
   </header>
 
   <div class="wrap">
     <div class="toolbar">
       <button id="add1">+ Add 1 row</button>
       <button id="add10">+ Add 10 rows</button>
-      <button id="clear">Clear all inputs</button>
-      <span class="hint">C = 0.543·A + 0.457·B &nbsp;|&nbsp; 
+      <button id="setStart">Set first date = today</button>
+      <button id="clearAB">Clear A/B</button>
+      <span class="hint">
+        C = 0.543·A + 0.457·B &nbsp;|&nbsp;
         D = 12542.898914·A + 11420.962628·B − 109.512226·A² − 113.529363·B² − 673.234821·A·B − 2.044843·A³ − 0.046012·B³ + 8.490782·A²·B + 4.692059·A·B² − 212212.65665 &nbsp;|&nbsp;
         E = 0.964·A + 0.036·B − 0.695
       </span>
@@ -65,7 +60,7 @@
       <table id="grid" aria-label="Model Fix Grid">
         <thead>
           <tr>
-            <th class="rownum">Row</th>
+            <th class="datecol">Date</th>
             <th class="wide">Model 1 (A)</th>
             <th class="wide">Model 2 (B)</th>
             <th class="wide">Fix1 (C)</th>
@@ -73,13 +68,11 @@
             <th class="wide">Fix3 (E)</th>
           </tr>
         </thead>
-        <tbody id="tbody">
-          <!-- Rows will be inserted here -->
-        </tbody>
+        <tbody id="tbody"></tbody>
       </table>
     </div>
 
-    <div class="hint">Tip: Leave A or B blank to clear computed cells in that row.</div>
+    <div class="hint">Tip: Change any date—rows below update to the next days automatically.</div>
   </div>
 
 <script>
@@ -87,65 +80,72 @@
   const tbody = document.getElementById('tbody');
   const add1 = document.getElementById('add1');
   const add10 = document.getElementById('add10');
-  const clearBtn = document.getElementById('clear');
+  const setStart = document.getElementById('setStart');
+  const clearAB = document.getElementById('clearAB');
 
-  // Formatting helper
-  function fmt(n) {
+  // Helpers
+  const dayMs = 24*60*60*1000;
+  const toISODate = d => new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+  const parseDate = (s) => {
+    // expects "YYYY-MM-DD"
+    const t = new Date(s);
+    return isNaN(t) ? null : t;
+  };
+  function fmt(n){
     if (!isFinite(n)) return "";
-    // Show up to 6 decimals; trim trailing zeros
     const s = n.toFixed(6);
     return s.replace(/\.?0+$/,'');
   }
 
+  // Compute C/D/E
   function compute(A, B) {
-    // Return {C, D, E} given A, B (numbers)
     const C = 0.543 * A + 0.457 * B;
-
     const D =
       12542.898914 * A +
       11420.962628 * B -
-      109.512226   * Math.pow(A, 2) -
-      113.529363   * Math.pow(B, 2) -
+      109.512226   * A*A -
+      113.529363   * B*B -
       673.234821   * A * B -
-      2.044843     * Math.pow(A, 3) -
-      0.046012     * Math.pow(B, 3) +
-      8.490782     * Math.pow(A, 2) * B +
-      4.692059     * A * Math.pow(B, 2) -
+      2.044843     * A*A*A -
+      0.046012     * B*B*B +
+      8.490782     * A*A * B +
+      4.692059     * A * B*B -
       212212.65665;
-
     const E = 0.964 * A + 0.036 * B - 0.695;
-
-    return { C, D, E };
+    return {C,D,E};
   }
 
-  function rowTemplate(rowIndex) {
-    // Row number starts at 2 (Excel-style: first data row is 2)
-    const excelRow = rowIndex + 2;
+  // Row template
+  function rowTemplate() {
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td class="rownum">${excelRow}</td>
-      <td class="cell"><input class="cell-input a" type="number" step="any" placeholder="A${excelRow}" inputmode="decimal" aria-label="A${excelRow}"></td>
-      <td class="cell"><input class="cell-input b" type="number" step="any" placeholder="B${excelRow}" inputmode="decimal" aria-label="B${excelRow}"></td>
-      <td class="cell"><input class="cell-input readonly c" type="text" placeholder="C${excelRow}" aria-label="C${excelRow}" readonly></td>
-      <td class="cell"><input class="cell-input readonly d" type="text" placeholder="D${excelRow}" aria-label="D${excelRow}" readonly></td>
-      <td class="cell"><input class="cell-input readonly e" type="text" placeholder="E${excelRow}" aria-label="E${excelRow}" readonly></td>
+      <td class="cell"><input class="date cell-input" type="date" aria-label="Date"></td>
+      <td class="cell"><input class="cell-input a" type="number" step="any" placeholder="A" inputmode="decimal" aria-label="A"></td>
+      <td class="cell"><input class="cell-input b" type="number" step="any" placeholder="B" inputmode="decimal" aria-label="B"></td>
+      <td class="cell"><input class="cell-input readonly c" type="text" placeholder="C" aria-label="C" readonly></td>
+      <td class="cell"><input class="cell-input readonly d" type="text" placeholder="D" aria-label="D" readonly></td>
+      <td class="cell"><input class="cell-input readonly e" type="text" placeholder="E" aria-label="E" readonly></td>
     `;
     return tr;
   }
 
-  function addRows(n=1) {
-    const start = tbody.children.length;
-    for (let i=0; i<n; i++) {
-      tbody.appendChild(rowTemplate(start + i));
+  function addRows(n=1){
+    const startLen = tbody.children.length;
+    for (let i=0; i<n; i++){
+      const tr = rowTemplate();
+      tbody.appendChild(tr);
     }
+    // Autofill dates for new rows if prior exists
+    cascadeDatesFrom(0, true);
   }
 
-  function recomputeRow(tr) {
-    const aEl = tr.querySelector('input.a');
-    const bEl = tr.querySelector('input.b');
-    const cEl = tr.querySelector('input.c');
-    const dEl = tr.querySelector('input.d');
-    const eEl = tr.querySelector('input.e');
+  // Recompute C/D/E for a specific row
+  function recomputeRow(tr){
+    const aEl = tr.querySelector('.a');
+    const bEl = tr.querySelector('.b');
+    const cEl = tr.querySelector('.c');
+    const dEl = tr.querySelector('.d');
+    const eEl = tr.querySelector('.e');
 
     const A = parseFloat(aEl.value);
     const B = parseFloat(bEl.value);
@@ -153,29 +153,99 @@
       cEl.value = dEl.value = eEl.value = "";
       return;
     }
-    const { C, D, E } = compute(A, B);
+    const {C,D,E} = compute(A,B);
     cEl.value = fmt(C);
     dEl.value = fmt(D);
     eEl.value = fmt(E);
   }
 
-  // Event delegation: compute on any input in A/B
+  // Recompute all rows
+  function recomputeAll(){
+    [...tbody.rows].forEach(recomputeRow);
+  }
+
+  // Cascade dates: when a date in row i changes, rows below i get +1 day steps
+  function cascadeDatesFrom(i, onlyFillBlanks=false){
+    const rows = [...tbody.rows];
+    if (rows.length === 0) return;
+    // Find a base date for row i. If missing, try to derive from above.
+    let base = rows[i].querySelector('.date').value;
+    let baseDate = parseDate(base);
+
+    if (!baseDate){
+      // Look upward for last known date
+      for (let k=i-1; k>=0; k--){
+        const v = rows[k].querySelector('.date').value;
+        const d = parseDate(v);
+        if (d) { baseDate = new Date(d.getTime() + (i-k)*dayMs); break; }
+      }
+      // If still none, look downward for next known date and fill backwards
+      if (!baseDate){
+        for (let k=i+1; k<rows.length; k++){
+          const v = rows[k].querySelector('.date').value;
+          const d = parseDate(v);
+          if (d) { baseDate = new Date(d.getTime() - (k-i)*dayMs); break; }
+        }
+      }
+      // If still none, default to today
+      if (!baseDate) baseDate = new Date();
+      rows[i].querySelector('.date').value = toISODate(baseDate);
+    }
+
+    // Fill below
+    for (let r=i+1; r<rows.length; r++){
+      const prev = rows[r-1].querySelector('.date').value;
+      const prevDate = parseDate(prev);
+      if (!prevDate) break;
+      const target = rows[r].querySelector('.date');
+      if (!onlyFillBlanks || !target.value){
+        target.value = toISODate(new Date(prevDate.getTime() + dayMs));
+      }
+    }
+  }
+
+  // Event: input in A/B recompute row
   tbody.addEventListener('input', (e) => {
-    const target = e.target;
-    if (!(target instanceof HTMLInputElement)) return;
-    if (!target.classList.contains('a') && !target.classList.contains('b')) return;
-    recomputeRow(target.closest('tr'));
+    const t = e.target;
+    if (!(t instanceof HTMLInputElement)) return;
+    if (t.classList.contains('a') || t.classList.contains('b')) {
+      recomputeRow(t.closest('tr'));
+    }
   });
 
-  add1.onclick  = () => addRows(1);
-  add10.onclick = () => addRows(10);
+  // Event: date change cascades downstream
+  tbody.addEventListener('change', (e) => {
+    const t = e.target;
+    if (!(t instanceof HTMLInputElement)) return;
+    if (!t.classList.contains('date')) return;
+    const tr = t.closest('tr');
+    const index = [...tbody.rows].indexOf(tr);
+    // Normalize the edited date (ensure valid)
+    const d = parseDate(t.value);
+    if (!d) { t.value = ""; return; }
+    t.value = toISODate(d);
+    cascadeDatesFrom(index, false);
+  });
 
-  clearBtn.onclick = () => {
-    [...tbody.querySelectorAll('input.a, input.b, input.c, input.d, input.e')].forEach(el => el.value = "");
+  // Controls
+  add1.onclick = () => addRows(1);
+  add10.onclick = () => addRows(10);
+  setStart.onclick = () => {
+    if (tbody.rows.length === 0) addRows(1);
+    const first = tbody.rows[0].querySelector('.date');
+    first.value = toISODate(new Date());
+    cascadeDatesFrom(0, false);
+  };
+  clearAB.onclick = () => {
+    [...tbody.querySelectorAll('.a,.b,.c,.d,.e')].forEach(el => el.value = "");
   };
 
-  // Start with a few rows
-  addRows(5);
+  // Init with 7 rows and today as start date
+  addRows(7);
+  const first = tbody.rows[0]?.querySelector('.date');
+  if (first){ first.value = toISODate(new Date()); cascadeDatesFrom(0, false); }
+  // Ensure computed columns blank until A/B typed
+  recomputeAll();
 })();
 </script>
 </body>
