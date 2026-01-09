@@ -89,83 +89,6 @@
     .dot.ok{ background:var(--ok); box-shadow:0 0 0 4px rgba(43,208,126,.12); }
     .dot.err{ background:var(--err); box-shadow:0 0 0 4px rgba(255,107,107,.12); }
 
-    .controls{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      padding:12px 14px;
-      border:1px solid var(--hair);
-      background:linear-gradient(180deg, rgba(17,26,51,.88), rgba(15,23,48,.82));
-      border-radius:var(--radius);
-      box-shadow:0 14px 40px rgba(0,0,0,.28);
-    }
-    .controlLeft{
-      display:flex;
-      flex-direction:column;
-      gap:4px;
-    }
-    .controlTitle{
-      font-weight:800;
-      font-size:13px;
-      letter-spacing:.2px;
-    }
-    .controlHint{
-      font-size:12px;
-      color:var(--muted);
-      line-height:1.35;
-    }
-    .controlRight{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      flex-wrap:wrap;
-      justify-content:flex-end;
-    }
-    .field{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      padding:8px 10px;
-      border-radius:14px;
-      border:1px solid var(--hair2);
-      background:rgba(255,255,255,.04);
-    }
-    .field label{
-      font-size:12px;
-      color:rgba(234,240,255,.86);
-      font-weight:700;
-      white-space:nowrap;
-    }
-    .field input{
-      width:120px;
-      border-radius:12px;
-      border:1px solid rgba(255,255,255,.10);
-      background:rgba(0,0,0,.22);
-      color:var(--text);
-      padding:10px 10px;
-      font-weight:800;
-      outline:none;
-    }
-    .field input:focus{
-      border-color:rgba(90,160,255,.55);
-      box-shadow:0 0 0 4px rgba(90,160,255,.14);
-    }
-    .btnSmall{
-      appearance:none;
-      border:1px solid rgba(90,160,255,.55);
-      background:linear-gradient(180deg, rgba(90,160,255,.25), rgba(90,160,255,.10));
-      color:var(--text);
-      font-weight:800;
-      letter-spacing:.2px;
-      padding:10px 12px;
-      border-radius:12px;
-      cursor:pointer;
-      user-select:none;
-    }
-    .btnSmall:active{ transform:translateY(1px); }
-    .btnSmall[disabled]{ opacity:.55; cursor:not-allowed; }
-
     .grid{
       display:grid;
       grid-template-columns:1fr 1fr;
@@ -206,7 +129,7 @@
     }
     iframe{
       width:100%;
-      height:290px;
+      height:310px;
       border:0;
       display:block;
       background:transparent;
@@ -273,12 +196,9 @@
 
     @media (max-width: 860px){
       .grid{ grid-template-columns:1fr; }
-      iframe{ height:270px; }
+      iframe{ height:300px; }
       header{ flex-direction:column; align-items:flex-start; }
       .status{ align-items:flex-start; text-align:left; min-width:auto; }
-      .controls{ flex-direction:column; align-items:flex-start; }
-      .controlRight{ justify-content:flex-start; }
-      .field input{ width:160px; }
     }
   </style>
 </head>
@@ -289,8 +209,8 @@
       <div>
         <h1>Next Extremum (prediction) — Method 1 vs Method 2</h1>
         <div class="sub">
-          Set <b>Min days after last sheet date</b> (shared), then click <b>Load &amp; Predict</b> on either method.
-          Predictions merge into the table by <b>Time</b>.
+          Each method has its <b>own</b> “Min days after last sheet date”.
+          Click <b>Load &amp; Predict</b> in either panel. Table merges rows by <b>Time</b>.
         </div>
       </div>
       <div class="status">
@@ -304,32 +224,11 @@
       </div>
     </header>
 
-    <section class="controls">
-      <div class="controlLeft">
-        <div class="controlTitle">Shared Input</div>
-        <div class="controlHint">
-          This value is pushed into both source pages’ “Min days after last sheet date” input.
-          Then the source prediction recalculates when you click “Load &amp; Predict”.
-        </div>
-      </div>
-      <div class="controlRight">
-        <div class="field">
-          <label for="sharedMinDays">Min days after last sheet date</label>
-          <input id="sharedMinDays" type="number" inputmode="numeric" min="0" step="1" placeholder="e.g., 3" />
-        </div>
-        <button class="btnSmall" id="applyBtn" disabled>Apply to both</button>
-        <div class="pill" id="applyPill" style="display:none;">
-          <span class="dot ok"></span>
-          <span id="applyText">Applied</span>
-        </div>
-      </div>
-    </section>
-
     <section class="grid">
       <div class="card">
         <div class="cardHead">
           <div class="title"><span>Method 1</span></div>
-          <span class="tag">Embedded panel</span>
+          <span class="tag">Independent min-days</span>
         </div>
         <iframe id="m1" title="Method 1 Panel" src="method1.html"></iframe>
       </div>
@@ -337,7 +236,7 @@
       <div class="card">
         <div class="cardHead">
           <div class="title"><span>Method 2</span></div>
-          <span class="tag">Embedded panel</span>
+          <span class="tag">Independent min-days</span>
         </div>
         <iframe id="m2" title="Method 2 Panel" src="method2.html"></iframe>
       </div>
@@ -381,16 +280,7 @@
       const lastUpdatePill = document.getElementById('lastUpdatePill');
       const lastUpdateText = document.getElementById('lastUpdateText');
 
-      const sharedMinDays = document.getElementById('sharedMinDays');
-      const applyBtn = document.getElementById('applyBtn');
-      const applyPill = document.getElementById('applyPill');
-      const applyText = document.getElementById('applyText');
-
-      const iframeM1 = document.getElementById('m1');
-      const iframeM2 = document.getElementById('m2');
-
       const panelReady = { method1: false, method2: false };
-      let lastMinDaysFromPanels = ''; // helps auto-fill shared input once
 
       const byTime = new Map(); // time -> {time, m1, m2}
       const order = [];
@@ -454,34 +344,6 @@
         upsertRow._t = window.setTimeout(()=> lastUpdatePill.style.display = 'none', 3500);
       }
 
-      function postTo(method, msg){
-        try{
-          const target = (method === 'method1') ? iframeM1.contentWindow : iframeM2.contentWindow;
-          if(target) target.postMessage(msg, window.location.origin);
-        }catch(_){}
-      }
-
-      function broadcastMinDays(value, excludeMethod=null){
-        const v = String(value ?? '').trim();
-        if(!v) return;
-        if(excludeMethod !== 'method1') postTo('method1', { type:'set_min_days', value: v });
-        if(excludeMethod !== 'method2') postTo('method2', { type:'set_min_days', value: v });
-      }
-
-      function flashApplied(text){
-        applyPill.style.display = 'inline-flex';
-        applyText.textContent = text;
-        clearTimeout(flashApplied._t);
-        flashApplied._t = setTimeout(() => applyPill.style.display = 'none', 2500);
-      }
-
-      function validMinDays(val){
-        if(val === '' || val == null) return false;
-        const n = Number(val);
-        return Number.isFinite(n) && n >= 0;
-      }
-
-      // Listen for messages from method pages
       window.addEventListener('message', (event) => {
         if(event.origin !== window.location.origin) return;
 
@@ -489,10 +351,8 @@
 
         if(msg.type === 'ready' && (msg.method === 'method1' || msg.method === 'method2')){
           panelReady[msg.method] = true;
-
           if(panelReady.method1 && panelReady.method2){
             setConn('ok', 'Panels ready');
-            applyBtn.disabled = false;
           }else{
             setConn('warn', 'One panel ready…');
           }
@@ -508,53 +368,11 @@
           upsertRow(msg.time, msg.method, msg.price);
           return;
         }
-
-        // Panel detected initial min-days from source; auto-fill shared once if empty.
-        if(msg.type === 'min_days_detected' && (msg.method === 'method1' || msg.method === 'method2')){
-          const v = String(msg.value ?? '').trim();
-          if(v && v !== '—'){
-            lastMinDaysFromPanels = v;
-            if(!sharedMinDays.value){
-              sharedMinDays.value = v;
-              broadcastMinDays(v);
-              flashApplied('Auto-filled & applied');
-            }
-          }
-          return;
-        }
-
-        // Panel input changed; sync to shared + other panel
-        if(msg.type === 'min_days_changed' && (msg.method === 'method1' || msg.method === 'method2')){
-          const v = String(msg.value ?? '').trim();
-          if(validMinDays(v)){
-            sharedMinDays.value = v;
-            broadcastMinDays(v, msg.method);
-            flashApplied(`Synced from ${msg.method === 'method1' ? 'Method 1' : 'Method 2'}`);
-          }
-          return;
-        }
       });
 
-      // Shared controls
-      applyBtn.addEventListener('click', () => {
-        const v = String(sharedMinDays.value ?? '').trim();
-        if(!validMinDays(v)){
-          flashApplied('Enter a valid ≥ 0 number');
-          return;
-        }
-        broadcastMinDays(v);
-        flashApplied('Applied to both');
-      });
-
-      sharedMinDays.addEventListener('keydown', (e) => {
-        if(e.key === 'Enter') applyBtn.click();
-      });
-
-      // Initial render
       render();
       setConn('warn', 'Waiting for panels…');
 
-      // If panels never respond
       window.setTimeout(() => {
         if(!panelReady.method1 && !panelReady.method2){
           setConn('err', 'Panels did not respond (check GitHub Pages paths / same-origin hosting)');
