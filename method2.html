@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Method 2 Panel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --bg:transparent;
+      --panel:rgba(255,255,255,.04);
+      --hair:rgba(255,255,255,.10);
+      --hair2:rgba(255,255,255,.08);
+      --text:#eaf0ff;
+      --muted:rgba(234,240,255,.72);
+      --accent:#5aa0ff;
+      --ok:#2bd07e;
+      --warn:#ffd166;
+      --err:#ff6b6b;
+      --radius:16px;
+    }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      background:var(--bg);
+      color:var(--text);
+    }
+    .panel{
+      height:100%;
+      padding:14px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+    .top{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .btn{
+      appearance:none;
+      border:1px solid rgba(90,160,255,.55);
+      background:linear-gradient(180deg, rgba(90,160,255,.25), rgba(90,160,255,.10));
+      color:var(--text);
+      font-weight:800;
+      letter-spacing:.2px;
+      padding:10px 12px;
+      border-radius:12px;
+      cursor:pointer;
+      transition:transform .08s ease, filter .18s ease;
+      user-select:none;
+      white-space:nowrap;
+    }
+    .btn:active{ transform:translateY(1px); }
+    .btn[disabled]{
+      opacity:.55;
+      cursor:not-allowed;
+      filter:saturate(.7);
+    }
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:7px 10px;
+      border-radius:999px;
+      border:1px solid var(--hair2);
+      background:var(--panel);
+      color:var(--muted);
+      font-size:12px;
+      white-space:nowrap;
+    }
+    .dot{
+      width:8px;height:8px;border-radius:50%;
+      background:var(--warn);
+      box-shadow:0 0 0 4px rgba(255,209,102,.12);
+      flex:0 0 auto;
+    }
+    .dot.ok{ background:var(--ok); box-shadow:0 0 0 4px rgba(43,208,126,.12); }
+    .dot.err{ background:var(--err); box-shadow:0 0 0 4px rgba(255,107,107,.12); }
+
+    .grid{
+      display:grid;
+      grid-template-columns:1fr;
+      gap:10px;
+      padding:10px;
+      border:1px solid var(--hair);
+      border-radius:var(--radius);
+      background:rgba(255,255,255,.03);
+    }
+    .row{
+      display:flex;
+      align-items:baseline;
+      justify-content:space-between;
+      gap:12px;
+      padding:8px 8px;
+      border-radius:12px;
+      background:rgba(0,0,0,.12);
+      border:1px solid rgba(255,255,255,.06);
+    }
+    .k{
+      font-size:12px;
+      color:var(--muted);
+    }
+    .v{
+      font-size:13px;
+      font-weight:800;
+      color:rgba(234,240,255,.95);
+      text-align:right;
+      word-break:break-word;
+    }
+
+    .hint{
+      font-size:11.5px;
+      color:rgba(234,240,255,.60);
+      line-height:1.35;
+    }
+    .hint a{ color:rgba(90,160,255,.95); text-decoration:none; }
+    .hint a:hover{ text-decoration:underline; }
+
+    /* hidden iframe (keep it loading & executing) */
+    #sourceFrame{
+      position:absolute;
+      left:-99999px;
+      top:-99999px;
+      width:1280px;
+      height:720px;
+      opacity:0;
+      pointer-events:none;
+      border:0;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="panel">
+    <div class="top">
+      <button class="btn" id="predictBtn" disabled>Load &amp; Predict</button>
+      <div class="pill" id="statusPill">
+        <span class="dot" id="statusDot"></span>
+        <span id="statusText">Loading source…</span>
+      </div>
+    </div>
+
+    <div class="grid" aria-label="Method 2 Values">
+      <div class="row">
+        <div class="k">Min days after last sheet date</div>
+        <div class="v" id="minDays">—</div>
+      </div>
+      <div class="row">
+        <div class="k">Time</div>
+        <div class="v" id="time">—</div>
+      </div>
+      <div class="row">
+        <div class="k">Price</div>
+        <div class="v" id="price">—</div>
+      </div>
+    </div>
+
+    <div class="hint" id="hint">
+      Extracting from the hosted page.
+      <a href="https://a860h040.github.io/time/index2" target="_blank" rel="noopener">Open source page</a>
+    </div>
+  </div>
+
+  <iframe id="sourceFrame" title="Method 2 Source" src="about:blank"></iframe>
+
+  <script>
+    (function(){
+      const METHOD = 'method2';
+      const SOURCE_URL = 'https://a860h040.github.io/time/index2';
+
+      const predictBtn = document.getElementById('predictBtn');
+      const statusDot = document.getElementById('statusDot');
+      const statusText = document.getElementById('statusText');
+
+      const minDaysEl = document.getElementById('minDays');
+      const timeEl = document.getElementById('time');
+      const priceEl = document.getElementById('price');
+
+      const sourceFrame = document.getElementById('sourceFrame');
+
+      function clean(s){
+        return String(s ?? '').replace(/\s+/g,' ').trim();
+      }
+
+      function setStatus(state, text){
+        statusText.textContent = text;
+        statusDot.classList.remove('ok','err');
+        if(state === 'ok') statusDot.classList.add('ok');
+        if(state === 'err') statusDot.classList.add('err');
+      }
+
+      function post(msg){
+        try{
+          window.parent.postMessage(msg, window.location.origin);
+        }catch(_){}
+      }
+
+      function panelError(message){
+        setStatus('err', message);
+        predictBtn.disabled = true;
+        post({ type:'panel_error', method: METHOD, message });
+      }
+
+      function canAccessFrame(){
+        try{
+          const d = sourceFrame.contentDocument;
+          return !!(d && d.body);
+        }catch(e){
+          return false;
+        }
+      }
+
+      function getFrameDoc(){
+        return sourceFrame.contentDocument;
+      }
+
+      function findHeadingContaining(doc, needle){
+        const n = needle.toLowerCase();
+        for(const h of doc.querySelectorAll('h1,h2,h3,h4,h5,h6')){
+          const t = clean(h.innerText).toLowerCase();
+          if(t.includes(n)) return h;
+        }
+        return null;
+      }
+
+      function findBoundaryHeading(doc, startHeading){
+        const headings = Array.from(doc.querySelectorAll('h1,h2,h3,h4,h5,h6'));
+        const startIdx = headings.indexOf(startHeading);
+        if(startIdx < 0) return null;
+
+        for(let i = startIdx + 1; i < headings.length; i++){
+          const t = clean(headings[i].innerText).toLowerCase();
+          if(/^4\)/.test(t) || t.includes('10-day price path') || t.includes('chart')) return headings[i];
+        }
+        return null;
+      }
+
+      function isBetween(node, start, end){
+        if(!node || !start) return false;
+        const afterStart = !!(start.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING);
+        if(!afterStart) return false;
+        if(!end) return true;
+        const beforeEnd = !!(end.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_PRECEDING);
+        return beforeEnd;
+      }
+
+      function leafTextValue(el){
+        if(!el) return '';
+        if(el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT'){
+          return clean(el.value);
+        }
+        return clean(el.innerText);
+      }
+
+      function findLeafWithText(doc, needle, { exact=false, withinStart=null, withinEnd=null } = {}){
+        const n = needle.toLowerCase();
+        const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_ELEMENT, {
+          acceptNode(node){
+            const tag = node.tagName ? node.tagName.toUpperCase() : '';
+            if(tag === 'SCRIPT' || tag === 'STYLE' || tag === 'NOSCRIPT') return NodeFilter.FILTER_REJECT;
+
+            if(withinStart && !isBetween(node, withinStart, withinEnd)) return NodeFilter.FILTER_SKIP;
+
+            if(node.children && node.children.length) return NodeFilter.FILTER_SKIP;
+
+            const t = clean(node.textContent).toLowerCase();
+            if(!t) return NodeFilter.FILTER_SKIP;
+
+            if(exact ? (t === n) : t.includes(n)) return NodeFilter.FILTER_ACCEPT;
+            return NodeFilter.FILTER_SKIP;
+          }
+        });
+
+        let cur;
+        while((cur = walker.nextNode())){
+          return cur;
+        }
+        return null;
+      }
+
+      function valueNearLabel(labelEl){
+        if(!labelEl) return '';
+
+        const tr = labelEl.closest && labelEl.closest('tr');
+        if(tr){
+          const cells = Array.from(tr.querySelectorAll('th,td'));
+          if(cells.length >= 2){
+            for(let i = cells.length - 1; i >= 0; i--){
+              const v = leafTextValue(cells[i]);
+              if(v && v !== leafTextValue(labelEl)) return v;
+            }
+          }
+        }
+
+        if(labelEl.nextElementSibling){
+          const v = leafTextValue(labelEl.nextElementSibling);
+          if(v) return v;
+          const nested = labelEl.nextElementSibling.querySelector && labelEl.nextElementSibling.querySelector('input,textarea,select');
+          if(nested){
+            const vv = leafTextValue(nested);
+            if(vv) return vv;
+          }
+        }
+
+        const p = labelEl.parentElement;
+        if(p){
+          const kids = Array.from(p.children);
+          const idx = kids.indexOf(labelEl);
+          if(idx >= 0){
+            for(let i = idx + 1; i < kids.length; i++){
+              const v = leafTextValue(kids[i]);
+              if(v && v !== leafTextValue(labelEl)) return v;
+              const nested = kids[i].querySelector && kids[i].querySelector('input,textarea,select');
+              if(nested){
+                const vv = leafTextValue(nested);
+                if(vv) return vv;
+              }
+            }
+          }
+
+          const pt = clean(p.innerText);
+          if(pt){
+            const label = clean(labelEl.textContent);
+            const re = new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*[:\\-—]*\\s*([^\\n]+)$', 'i');
+            const m = pt.match(re);
+            if(m && m[1]) return clean(m[1]);
+          }
+        }
+
+        return '';
+      }
+
+      function findLoadPredictButton(doc){
+        const candidates = Array.from(doc.querySelectorAll('button,input[type="button"],input[type="submit"],a,[role="button"]'));
+        for(const el of candidates){
+          const t = clean((el.innerText || el.value || el.getAttribute('aria-label') || ''));
+          const tl = t.toLowerCase();
+          if(tl.includes('load') && tl.includes('predict')) return el;
+        }
+        return null;
+      }
+
+      function extractMinDays(doc){
+        const label = findLeafWithText(doc, 'Min days after last sheet date', { exact:false });
+        if(label){
+          let v = valueNearLabel(label);
+
+          if(!v || v === '—'){
+            const cluster = label.closest && (label.closest('div') || label.closest('section') || label.parentElement);
+            if(cluster){
+              const inp = cluster.querySelector && cluster.querySelector('input,select,textarea');
+              if(inp){
+                const iv = leafTextValue(inp);
+                if(iv) v = iv;
+              }
+            }
+          }
+
+          const num = (v || '').match(/-?\d+(\.\d+)?/);
+          return num ? num[0] : (v || '—');
+        }
+
+        const txt = clean(doc.body.innerText);
+        const m = txt.match(/Min\s+days\s+after\s+last\s+sheet\s+date\s*[:\-—]?\s*([0-9]+(\.[0-9]+)?)/i);
+        return m ? m[1] : '—';
+      }
+
+      function extractNextExtremum(doc){
+        const heading = findHeadingContaining(doc, 'Next Extremum (prediction)');
+        const boundary = heading ? findBoundaryHeading(doc, heading) : null;
+
+        let time = '—';
+        let price = '—';
+
+        if(heading){
+          const timeLabel = findLeafWithText(doc, 'Time', { exact:true, withinStart: heading, withinEnd: boundary });
+          const priceLabel = findLeafWithText(doc, 'Price', { exact:true, withinStart: heading, withinEnd: boundary });
+
+          if(timeLabel){
+            const v = valueNearLabel(timeLabel);
+            time = v || '—';
+          }
+          if(priceLabel){
+            const v = valueNearLabel(priceLabel);
+            price = v || '—';
+          }
+        }else{
+          const timeLabel = findLeafWithText(doc, 'Time', { exact:true });
+          const priceLabel = findLeafWithText(doc, 'Price', { exact:true });
+          if(timeLabel) time = valueNearLabel(timeLabel) || '—';
+          if(priceLabel) price = valueNearLabel(priceLabel) || '—';
+        }
+
+        time = clean(time) || '—';
+        price = clean(price) || '—';
+        return { time, price };
+      }
+
+      function extractAll(doc){
+        const minDays = extractMinDays(doc);
+        const { time, price } = extractNextExtremum(doc);
+        return { minDays, time, price };
+      }
+
+      function updateUI(values){
+        minDaysEl.textContent = values.minDays ?? '—';
+        timeEl.textContent = values.time ?? '—';
+        priceEl.textContent = values.price ?? '—';
+      }
+
+      function sendPrediction(values){
+        post({
+          type: 'prediction',
+          method: METHOD,
+          minDays: values.minDays ?? '—',
+          time: values.time ?? '—',
+          price: values.price ?? '—',
+          at: Date.now()
+        });
+      }
+
+      async function clickAndPoll(){
+        if(!canAccessFrame()){
+          panelError('Cannot read source page (same-origin required).');
+          return;
+        }
+        const doc = getFrameDoc();
+
+        const sourceBtn = findLoadPredictButton(doc);
+        if(!sourceBtn){
+          panelError('Could not find “Load & Predict” button on source page.');
+          return;
+        }
+
+        predictBtn.disabled = true;
+        setStatus('warn', 'Running prediction…');
+
+        const before = extractAll(doc);
+
+        try{
+          sourceBtn.click();
+        }catch(e){
+          panelError('Failed to click source “Load & Predict” button.');
+          return;
+        }
+
+        const start = Date.now();
+        const TIMEOUT_MS = 14000;
+        const INTERVAL_MS = 350;
+
+        const timer = setInterval(() => {
+          if(!canAccessFrame()){
+            clearInterval(timer);
+            panelError('Lost access to source page (same-origin issue).');
+            return;
+          }
+          const d = getFrameDoc();
+          const now = extractAll(d);
+          updateUI(now);
+
+          const changed =
+            clean(now.time) !== clean(before.time) ||
+            clean(now.price) !== clean(before.price) ||
+            clean(now.minDays) !== clean(before.minDays);
+
+          const looksReady =
+            clean(now.time) && clean(now.time) !== '—' &&
+            clean(now.price) && clean(now.price) !== '—';
+
+          if(changed && looksReady){
+            clearInterval(timer);
+            setStatus('ok', 'Updated');
+            predictBtn.disabled = false;
+            sendPrediction(now);
+            return;
+          }
+
+          if(Date.now() - start > TIMEOUT_MS){
+            clearInterval(timer);
+            setStatus('err', 'Timed out (no new values found)');
+            predictBtn.disabled = false;
+            sendPrediction(now);
+          }
+        }, INTERVAL_MS);
+      }
+
+      sourceFrame.src = SOURCE_URL;
+
+      sourceFrame.addEventListener('load', () => {
+        setTimeout(() => {
+          if(!canAccessFrame()){
+            panelError('Same-origin blocked. Host this project on the SAME github.io domain as the source pages.');
+            return;
+          }
+
+          const doc = getFrameDoc();
+          const title = clean(doc.title).toLowerCase();
+          if(title.includes('404') || title.includes('not found')){
+            panelError('Source page returned 404 / Not Found.');
+            return;
+          }
+
+          setStatus('ok', 'Ready');
+          predictBtn.disabled = false;
+
+          const values = extractAll(doc);
+          updateUI(values);
+
+          post({ type:'ready', method: METHOD });
+        }, 250);
+      });
+
+      setTimeout(() => {
+        if(statusText.textContent.toLowerCase().includes('loading')){
+          panelError('Source page did not load (network / URL issue).');
+        }
+      }, 12000);
+
+      predictBtn.addEventListener('click', clickAndPoll);
+    })();
+  </script>
+</body>
+</html>
