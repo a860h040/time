@@ -10,17 +10,10 @@
 
   <style>
     :root{
-      --bg:#0b1020;
-      --panel:#111a33;
-      --panel2:#0f1730;
-      --hair:rgba(255,255,255,.10);
-      --hair2:rgba(255,255,255,.08);
-      --text:#eaf0ff;
-      --muted:rgba(234,240,255,.72);
-      --accent:#5aa0ff;
-      --ok:#2bd07e;
-      --warn:#ffd166;
-      --err:#ff6b6b;
+      --bg:#0b1020; --panel:#111a33; --panel2:#0f1730;
+      --hair:rgba(255,255,255,.10); --hair2:rgba(255,255,255,.08);
+      --text:#eaf0ff; --muted:rgba(234,240,255,.72);
+      --accent:#5aa0ff; --ok:#2bd07e; --warn:#ffd166; --err:#ff6b6b;
       --radius:18px;
     }
     *{ box-sizing:border-box; }
@@ -33,172 +26,67 @@
                  var(--bg);
       color:var(--text);
     }
-    .wrap{
-      max-width:1100px;
-      margin:0 auto;
-      padding:18px;
-      display:flex;
-      flex-direction:column;
-      gap:14px;
-    }
+    .wrap{ max-width:1100px; margin:0 auto; padding:18px; display:flex; flex-direction:column; gap:14px; }
     header{
-      display:flex;
-      align-items:flex-end;
-      justify-content:space-between;
-      gap:12px;
-      padding:14px 16px;
-      border:1px solid var(--hair);
+      display:flex; align-items:flex-end; justify-content:space-between; gap:12px;
+      padding:14px 16px; border:1px solid var(--hair);
       background:linear-gradient(180deg, rgba(17,26,51,.90), rgba(15,23,48,.84));
-      border-radius:var(--radius);
-      box-shadow:0 14px 40px rgba(0,0,0,.32);
+      border-radius:var(--radius); box-shadow:0 14px 40px rgba(0,0,0,.32);
     }
     h1{ margin:0; font-size:18px; letter-spacing:.2px; }
-    .sub{
-      margin-top:6px;
-      font-size:12px;
-      color:var(--muted);
-      line-height:1.35;
-    }
-    .status{
-      font-size:12px;
-      color:var(--muted);
-      display:flex;
-      flex-direction:column;
-      gap:6px;
-      align-items:flex-end;
-      text-align:right;
-      min-width:220px;
-    }
+    .sub{ margin-top:6px; font-size:12px; color:var(--muted); line-height:1.35; }
+
+    .status{ font-size:12px; color:var(--muted); display:flex; flex-direction:column; gap:6px; align-items:flex-end; text-align:right; }
     .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:7px 10px;
-      border-radius:999px;
-      border:1px solid var(--hair2);
-      background:rgba(255,255,255,.04);
-      color:var(--muted);
-      white-space:nowrap;
+      display:inline-flex; align-items:center; gap:8px; padding:7px 10px; border-radius:999px;
+      border:1px solid var(--hair2); background:rgba(255,255,255,.04); color:var(--muted); white-space:nowrap;
     }
-    .dot{
-      width:8px;height:8px;border-radius:50%;
-      background:var(--warn);
-      box-shadow:0 0 0 4px rgba(255,209,102,.12);
-      flex:0 0 auto;
-    }
+    .dot{ width:8px;height:8px;border-radius:50%; background:var(--warn); box-shadow:0 0 0 4px rgba(255,209,102,.12); }
     .dot.ok{ background:var(--ok); box-shadow:0 0 0 4px rgba(43,208,126,.12); }
     .dot.err{ background:var(--err); box-shadow:0 0 0 4px rgba(255,107,107,.12); }
 
-    .grid{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:14px;
-    }
+    .grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
     .card{
       border:1px solid var(--hair);
       background:linear-gradient(180deg, rgba(17,26,51,.88), rgba(15,23,48,.82));
-      border-radius:var(--radius);
-      overflow:hidden;
-      box-shadow:0 14px 40px rgba(0,0,0,.30);
+      border-radius:var(--radius); overflow:hidden; box-shadow:0 14px 40px rgba(0,0,0,.30);
       min-height:220px;
     }
-    .cardHead{
-      padding:12px 14px;
-      border-bottom:1px solid var(--hair2);
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-    }
-    .cardHead .title{
-      font-weight:800;
-      font-size:13px;
-      letter-spacing:.25px;
-      color:rgba(234,240,255,.92);
-      display:flex;
-      align-items:center;
-      gap:10px;
-    }
-    .tag{
-      font-size:11px;
-      padding:6px 8px;
-      border:1px solid var(--hair2);
-      border-radius:999px;
-      color:var(--muted);
-      background:rgba(255,255,255,.03);
-    }
-    iframe{
-      width:100%;
-      height:310px;
-      border:0;
-      display:block;
-      background:transparent;
-    }
+    .cardHead{ padding:12px 14px; border-bottom:1px solid var(--hair2); display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .cardHead .title{ font-weight:800; font-size:13px; letter-spacing:.25px; color:rgba(234,240,255,.92); }
+    .tag{ font-size:11px; padding:6px 8px; border:1px solid var(--hair2); border-radius:999px; color:var(--muted); background:rgba(255,255,255,.03); }
+
+    iframe{ width:100%; height:320px; border:0; display:block; background:transparent; }
 
     .tableCard{
       border:1px solid var(--hair);
       background:linear-gradient(180deg, rgba(17,26,51,.88), rgba(15,23,48,.82));
-      border-radius:var(--radius);
-      overflow:hidden;
-      box-shadow:0 14px 40px rgba(0,0,0,.30);
+      border-radius:var(--radius); overflow:hidden; box-shadow:0 14px 40px rgba(0,0,0,.30);
     }
-    .tableHead{
-      padding:12px 14px;
-      border-bottom:1px solid var(--hair2);
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-    }
-    .tableHead .left{
-      display:flex;
-      flex-direction:column;
-      gap:4px;
-    }
-    .tableHead .left .t{
-      font-weight:800;
-      font-size:13px;
-      letter-spacing:.25px;
-    }
-    .tableHead .left .d{
-      font-size:12px;
-      color:var(--muted);
-    }
+    .tableHead{ padding:12px 14px; border-bottom:1px solid var(--hair2); display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .tableHead .left{ display:flex; flex-direction:column; gap:4px; }
+    .tableHead .left .t{ font-weight:800; font-size:13px; letter-spacing:.25px; }
+    .tableHead .left .d{ font-size:12px; color:var(--muted); }
+
     .tableWrap{ overflow:auto; }
-    table{
-      width:100%;
-      border-collapse:separate;
-      border-spacing:0;
-      min-width:520px;
-    }
+    table{ width:100%; border-collapse:separate; border-spacing:0; min-width:520px; }
     thead th{
-      position:sticky;
-      top:0;
-      background:rgba(13,19,38,.92);
-      backdrop-filter: blur(10px);
-      text-align:left;
-      font-size:12px;
-      letter-spacing:.2px;
-      color:rgba(234,240,255,.88);
-      padding:10px 12px;
-      border-bottom:1px solid var(--hair2);
-      z-index:1;
+      position:sticky; top:0; background:rgba(13,19,38,.92); backdrop-filter: blur(10px);
+      text-align:left; font-size:12px; color:rgba(234,240,255,.88);
+      padding:10px 12px; border-bottom:1px solid var(--hair2); z-index:1;
     }
     tbody td{
-      padding:10px 12px;
-      border-bottom:1px solid rgba(255,255,255,.06);
-      font-size:12.5px;
-      color:rgba(234,240,255,.92);
-      vertical-align:top;
+      padding:10px 12px; border-bottom:1px solid rgba(255,255,255,.06);
+      font-size:12.5px; color:rgba(234,240,255,.92);
     }
     tbody tr:hover td{ background:rgba(255,255,255,.03); }
     .mutedCell{ color:rgba(234,240,255,.55); }
 
     @media (max-width: 860px){
       .grid{ grid-template-columns:1fr; }
-      iframe{ height:300px; }
       header{ flex-direction:column; align-items:flex-start; }
-      .status{ align-items:flex-start; text-align:left; min-width:auto; }
+      .status{ align-items:flex-start; text-align:left; }
+      iframe{ height:310px; }
     }
   </style>
 </head>
@@ -210,7 +98,7 @@
         <h1>Next Extremum (prediction) — Method 1 vs Method 2</h1>
         <div class="sub">
           Each method has its <b>own</b> “Min days after last sheet date”.
-          Click <b>Load &amp; Predict</b> in either panel. Table merges rows by <b>Time</b>.
+          Table merges rows by <b>Time</b>.
         </div>
       </div>
       <div class="status">
@@ -227,7 +115,7 @@
     <section class="grid">
       <div class="card">
         <div class="cardHead">
-          <div class="title"><span>Method 1</span></div>
+          <div class="title">Method 1</div>
           <span class="tag">Independent min-days</span>
         </div>
         <iframe id="m1" title="Method 1 Panel" src="method1.html"></iframe>
@@ -235,7 +123,7 @@
 
       <div class="card">
         <div class="cardHead">
-          <div class="title"><span>Method 2</span></div>
+          <div class="title">Method 2</div>
           <span class="tag">Independent min-days</span>
         </div>
         <iframe id="m2" title="Method 2 Panel" src="method2.html"></iframe>
@@ -246,13 +134,7 @@
       <div class="tableHead">
         <div class="left">
           <div class="t">Predictions Table</div>
-          <div class="d">
-            Same <b>Time</b> merges into one row. Missing method cells stay blank until updated.
-          </div>
-        </div>
-        <div class="pill" id="lastUpdatePill" style="display:none;">
-          <span class="dot ok"></span>
-          <span id="lastUpdateText">Updated</span>
+          <div class="d">If both methods return the same <b>Time</b>, both prices go in the same row.</div>
         </div>
       </div>
 
@@ -277,13 +159,11 @@
       const connText = document.getElementById('connText');
       const rowCount = document.getElementById('rowCount');
       const tbody = document.getElementById('rows');
-      const lastUpdatePill = document.getElementById('lastUpdatePill');
-      const lastUpdateText = document.getElementById('lastUpdateText');
 
       const panelReady = { method1: false, method2: false };
 
-      const byTime = new Map(); // time -> {time, m1, m2}
-      const order = [];
+      const byTime = new Map();   // time -> {time, m1, m2}
+      const order = [];           // insertion order of time keys
 
       function setConn(state, text){
         connText.textContent = text;
@@ -292,7 +172,7 @@
         if(state === 'err') connDot.classList.add('err');
       }
 
-      function escapeHtml(s){
+      function esc(s){
         return String(s ?? '')
           .replaceAll('&','&amp;')
           .replaceAll('<','&lt;')
@@ -304,44 +184,38 @@
       function render(){
         rowCount.textContent = String(order.length);
 
+        if(order.length === 0){
+          tbody.innerHTML = `<tr><td class="mutedCell" colspan="3">No rows yet. Click “Load & Predict”.</td></tr>`;
+          return;
+        }
+
         let html = '';
-        for(const timeKey of order){
-          const r = byTime.get(timeKey);
+        for(const k of order){
+          const r = byTime.get(k);
           html += `
             <tr>
-              <td>${escapeHtml(r.time)}</td>
-              <td class="${r.m1 ? '' : 'mutedCell'}">${escapeHtml(r.m1 || '')}</td>
-              <td class="${r.m2 ? '' : 'mutedCell'}">${escapeHtml(r.m2 || '')}</td>
+              <td>${esc(r.time)}</td>
+              <td class="${r.m1 ? '' : 'mutedCell'}">${esc(r.m1 || '')}</td>
+              <td class="${r.m2 ? '' : 'mutedCell'}">${esc(r.m2 || '')}</td>
             </tr>
           `;
         }
-        tbody.innerHTML = html || `
-          <tr>
-            <td class="mutedCell" colspan="3">No rows yet. Click “Load &amp; Predict” in either panel.</td>
-          </tr>
-        `;
+        tbody.innerHTML = html;
       }
 
       function upsertRow(time, method, price){
-        if(!time || String(time).trim() === '' || String(time).trim() === '—') return;
+        const key = String(time ?? '').trim();
+        if(!key || key === '—') return;
 
-        const key = String(time).trim();
         let row = byTime.get(key);
         if(!row){
-          row = { time: key, m1: '', m2: '' };
+          row = { time: key, m1:'', m2:'' };
           byTime.set(key, row);
           order.push(key);
         }
-        if(method === 'method1') row.m1 = (price ?? '').toString().trim();
-        if(method === 'method2') row.m2 = (price ?? '').toString().trim();
-
+        if(method === 'method1') row.m1 = String(price ?? '').trim();
+        if(method === 'method2') row.m2 = String(price ?? '').trim();
         render();
-
-        lastUpdatePill.style.display = 'inline-flex';
-        const ts = new Date();
-        lastUpdateText.textContent = `Updated ${ts.toLocaleString()}`;
-        window.clearTimeout(upsertRow._t);
-        upsertRow._t = window.setTimeout(()=> lastUpdatePill.style.display = 'none', 3500);
       }
 
       window.addEventListener('message', (event) => {
@@ -349,22 +223,19 @@
 
         const msg = event.data || {};
 
-        if(msg.type === 'ready' && (msg.method === 'method1' || msg.method === 'method2')){
+        if(msg.type === 'ready'){
           panelReady[msg.method] = true;
-          if(panelReady.method1 && panelReady.method2){
-            setConn('ok', 'Panels ready');
-          }else{
-            setConn('warn', 'One panel ready…');
-          }
+          if(panelReady.method1 && panelReady.method2) setConn('ok', 'Panels ready');
+          else setConn('warn', 'One panel ready…');
           return;
         }
 
-        if(msg.type === 'panel_error' && (msg.method === 'method1' || msg.method === 'method2')){
-          setConn('err', msg.message || 'A panel reported an error');
+        if(msg.type === 'panel_error'){
+          setConn('err', msg.message || 'A panel error occurred');
           return;
         }
 
-        if(msg.type === 'prediction' && (msg.method === 'method1' || msg.method === 'method2')){
+        if(msg.type === 'prediction'){
           upsertRow(msg.time, msg.method, msg.price);
           return;
         }
@@ -372,14 +243,6 @@
 
       render();
       setConn('warn', 'Waiting for panels…');
-
-      window.setTimeout(() => {
-        if(!panelReady.method1 && !panelReady.method2){
-          setConn('err', 'Panels did not respond (check GitHub Pages paths / same-origin hosting)');
-        }else if(!panelReady.method1 || !panelReady.method2){
-          setConn('err', 'One panel did not respond (check console inside that panel)');
-        }
-      }, 9000);
     })();
   </script>
 </body>
