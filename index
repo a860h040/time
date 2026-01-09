@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Next Extremum — Method 1 vs Method 2</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --bg:#0b1020;
+      --panel:#111a33;
+      --panel2:#0f1730;
+      --hair:rgba(255,255,255,.10);
+      --hair2:rgba(255,255,255,.08);
+      --text:#eaf0ff;
+      --muted:rgba(234,240,255,.72);
+      --accent:#5aa0ff;
+      --ok:#2bd07e;
+      --warn:#ffd166;
+      --err:#ff6b6b;
+      --radius:18px;
+    }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      background:radial-gradient(900px 600px at 20% 10%, rgba(90,160,255,.20), transparent 60%),
+                 radial-gradient(800px 520px at 80% 20%, rgba(43,208,126,.14), transparent 55%),
+                 radial-gradient(900px 600px at 50% 95%, rgba(255,209,102,.10), transparent 60%),
+                 var(--bg);
+      color:var(--text);
+    }
+    .wrap{
+      max-width:1100px;
+      margin:0 auto;
+      padding:18px;
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+    }
+    header{
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      gap:12px;
+      padding:14px 16px;
+      border:1px solid var(--hair);
+      background:linear-gradient(180deg, rgba(17,26,51,.90), rgba(15,23,48,.84));
+      border-radius:var(--radius);
+      box-shadow:0 14px 40px rgba(0,0,0,.32);
+    }
+    h1{
+      margin:0;
+      font-size:18px;
+      letter-spacing:.2px;
+    }
+    .sub{
+      margin-top:6px;
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.35;
+    }
+    .status{
+      font-size:12px;
+      color:var(--muted);
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      align-items:flex-end;
+      text-align:right;
+    }
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:7px 10px;
+      border-radius:999px;
+      border:1px solid var(--hair2);
+      background:rgba(255,255,255,.04);
+      color:var(--muted);
+      white-space:nowrap;
+    }
+    .dot{
+      width:8px;height:8px;border-radius:50%;
+      background:var(--warn);
+      box-shadow:0 0 0 4px rgba(255,209,102,.12);
+      flex:0 0 auto;
+    }
+    .dot.ok{ background:var(--ok); box-shadow:0 0 0 4px rgba(43,208,126,.12); }
+    .dot.err{ background:var(--err); box-shadow:0 0 0 4px rgba(255,107,107,.12); }
+
+    .grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:14px;
+    }
+    .card{
+      border:1px solid var(--hair);
+      background:linear-gradient(180deg, rgba(17,26,51,.88), rgba(15,23,48,.82));
+      border-radius:var(--radius);
+      overflow:hidden;
+      box-shadow:0 14px 40px rgba(0,0,0,.30);
+      min-height:220px;
+    }
+    .cardHead{
+      padding:12px 14px;
+      border-bottom:1px solid var(--hair2);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .cardHead .title{
+      font-weight:800;
+      font-size:13px;
+      letter-spacing:.25px;
+      color:rgba(234,240,255,.92);
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    .tag{
+      font-size:11px;
+      padding:6px 8px;
+      border:1px solid var(--hair2);
+      border-radius:999px;
+      color:var(--muted);
+      background:rgba(255,255,255,.03);
+    }
+    iframe{
+      width:100%;
+      height:250px;
+      border:0;
+      display:block;
+      background:transparent;
+    }
+
+    .tableCard{
+      border:1px solid var(--hair);
+      background:linear-gradient(180deg, rgba(17,26,51,.88), rgba(15,23,48,.82));
+      border-radius:var(--radius);
+      overflow:hidden;
+      box-shadow:0 14px 40px rgba(0,0,0,.30);
+    }
+    .tableHead{
+      padding:12px 14px;
+      border-bottom:1px solid var(--hair2);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .tableHead .left{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+    }
+    .tableHead .left .t{
+      font-weight:800;
+      font-size:13px;
+      letter-spacing:.25px;
+    }
+    .tableHead .left .d{
+      font-size:12px;
+      color:var(--muted);
+    }
+    .tableWrap{ overflow:auto; }
+    table{
+      width:100%;
+      border-collapse:separate;
+      border-spacing:0;
+      min-width:520px;
+    }
+    thead th{
+      position:sticky;
+      top:0;
+      background:rgba(13,19,38,.92);
+      backdrop-filter: blur(10px);
+      text-align:left;
+      font-size:12px;
+      letter-spacing:.2px;
+      color:rgba(234,240,255,.88);
+      padding:10px 12px;
+      border-bottom:1px solid var(--hair2);
+      z-index:1;
+    }
+    tbody td{
+      padding:10px 12px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+      font-size:12.5px;
+      color:rgba(234,240,255,.92);
+      vertical-align:top;
+    }
+    tbody tr:hover td{
+      background:rgba(255,255,255,.03);
+    }
+    .mutedCell{ color:rgba(234,240,255,.55); }
+
+    @media (max-width: 860px){
+      .grid{ grid-template-columns:1fr; }
+      iframe{ height:240px; }
+      header{ flex-direction:column; align-items:flex-start; }
+      .status{ align-items:flex-start; text-align:left; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Next Extremum (prediction) — Method 1 vs Method 2</h1>
+        <div class="sub">
+          Click <b>Load &amp; Predict</b> on either side. Each click updates that panel and appends/updates the table row by <b>Time</b>.
+        </div>
+      </div>
+      <div class="status">
+        <div class="pill" id="connPill">
+          <span class="dot" id="connDot"></span>
+          <span id="connText">Waiting for panels…</span>
+        </div>
+        <div class="pill">
+          <span style="opacity:.85;">Rows:</span> <span id="rowCount" style="font-weight:800;">0</span>
+        </div>
+      </div>
+    </header>
+
+    <section class="grid">
+      <div class="card">
+        <div class="cardHead">
+          <div class="title">
+            <span>Method 1</span>
+          </div>
+          <span class="tag">Embedded panel</span>
+        </div>
+        <iframe id="m1" title="Method 1 Panel" src="method1.html"></iframe>
+      </div>
+
+      <div class="card">
+        <div class="cardHead">
+          <div class="title">
+            <span>Method 2</span>
+          </div>
+          <span class="tag">Embedded panel</span>
+        </div>
+        <iframe id="m2" title="Method 2 Panel" src="method2.html"></iframe>
+      </div>
+    </section>
+
+    <section class="tableCard">
+      <div class="tableHead">
+        <div class="left">
+          <div class="t">Predictions Table</div>
+          <div class="d">If both methods return the same <b>Time</b>, prices merge into one row. Missing cells stay blank until updated.</div>
+        </div>
+        <div class="pill" id="lastUpdatePill" style="display:none;">
+          <span class="dot ok"></span>
+          <span id="lastUpdateText">Updated</span>
+        </div>
+      </div>
+
+      <div class="tableWrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:38%;">Time</th>
+              <th style="width:31%;">Method 1 (Price)</th>
+              <th style="width:31%;">Method 2 (Price)</th>
+            </tr>
+          </thead>
+          <tbody id="rows">
+            <!-- rows injected -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    (function(){
+      const connDot = document.getElementById('connDot');
+      const connText = document.getElementById('connText');
+      const rowCount = document.getElementById('rowCount');
+      const tbody = document.getElementById('rows');
+      const lastUpdatePill = document.getElementById('lastUpdatePill');
+      const lastUpdateText = document.getElementById('lastUpdateText');
+
+      // Track panel readiness (method pages send "ready" messages)
+      const panelReady = { method1: false, method2: false };
+
+      // Table state keyed by Time
+      const byTime = new Map();   // time -> row object
+      const order = [];           // insertion order of time keys
+
+      function setConn(state, text){
+        connText.textContent = text;
+        connDot.classList.remove('ok','err');
+        if(state === 'ok') connDot.classList.add('ok');
+        if(state === 'err') connDot.classList.add('err');
+      }
+
+      function escapeHtml(s){
+        return String(s ?? '')
+          .replaceAll('&','&amp;')
+          .replaceAll('<','&lt;')
+          .replaceAll('>','&gt;')
+          .replaceAll('"','&quot;')
+          .replaceAll("'","&#039;");
+      }
+
+      function render(){
+        rowCount.textContent = String(order.length);
+
+        let html = '';
+        for(const timeKey of order){
+          const r = byTime.get(timeKey);
+          html += `
+            <tr>
+              <td>${escapeHtml(r.time)}</td>
+              <td class="${r.m1 ? '' : 'mutedCell'}">${escapeHtml(r.m1 || '')}</td>
+              <td class="${r.m2 ? '' : 'mutedCell'}">${escapeHtml(r.m2 || '')}</td>
+            </tr>
+          `;
+        }
+        tbody.innerHTML = html || `
+          <tr>
+            <td class="mutedCell" colspan="3">No rows yet. Click “Load &amp; Predict” in either panel.</td>
+          </tr>
+        `;
+      }
+
+      function upsertRow(time, method, price){
+        if(!time || String(time).trim() === '' || String(time).trim() === '—') return;
+
+        const key = String(time).trim();
+        let row = byTime.get(key);
+        if(!row){
+          row = { time: key, m1: '', m2: '' };
+          byTime.set(key, row);
+          order.push(key);
+        }
+        if(method === 'method1') row.m1 = (price ?? '').toString().trim();
+        if(method === 'method2') row.m2 = (price ?? '').toString().trim();
+
+        render();
+
+        lastUpdatePill.style.display = 'inline-flex';
+        const ts = new Date();
+        lastUpdateText.textContent = `Updated ${ts.toLocaleString()}`;
+        window.clearTimeout(upsertRow._t);
+        upsertRow._t = window.setTimeout(()=> lastUpdatePill.style.display = 'none', 3500);
+      }
+
+      // Listen for messages from method pages
+      window.addEventListener('message', (event) => {
+        // Same-origin safety: only accept messages from same origin
+        if(event.origin !== window.location.origin) return;
+
+        const msg = event.data || {};
+        if(msg.type === 'ready' && (msg.method === 'method1' || msg.method === 'method2')){
+          panelReady[msg.method] = true;
+
+          if(panelReady.method1 && panelReady.method2){
+            setConn('ok', 'Panels ready');
+          }else{
+            setConn('warn', 'One panel ready…');
+          }
+          return;
+        }
+
+        if(msg.type === 'panel_error' && (msg.method === 'method1' || msg.method === 'method2')){
+          setConn('err', msg.message || 'A panel reported an error');
+          return;
+        }
+
+        if(msg.type === 'prediction' && (msg.method === 'method1' || msg.method === 'method2')){
+          // Update table based on Time, merge rows when Time matches
+          upsertRow(msg.time, msg.method, msg.price);
+        }
+      });
+
+      // Initial render
+      render();
+      setConn('warn', 'Waiting for panels…');
+
+      // If panels never respond, show a helpful status
+      window.setTimeout(() => {
+        if(!panelReady.method1 && !panelReady.method2){
+          setConn('err', 'Panels did not respond (check GitHub Pages paths / same-origin hosting)');
+        }else if(!panelReady.method1 || !panelReady.method2){
+          setConn('err', 'One panel did not respond (check console inside that panel)');
+        }
+      }, 9000);
+    })();
+  </script>
+</body>
+</html>
