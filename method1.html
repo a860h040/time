@@ -211,6 +211,11 @@
         catch(e){ return false; }
       }
       function getDoc(){ return sourceFrame.contentDocument; }
+      function validMinDays(v){
+        if(v === '' || v == null) return false;
+        const n = Number(v);
+        return Number.isFinite(n) && n >= 0;
+      }
 
       function isBetween(node, start, end){
         if(!node || !start) return false;
@@ -220,12 +225,14 @@
         const beforeEnd = !!(end.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_PRECEDING);
         return beforeEnd;
       }
+
       function leafTextValue(el){
         if(!el) return '';
         const tag = (el.tagName||'').toUpperCase();
         if(tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return clean(el.value);
         return clean(el.innerText);
       }
+
       function findHeadingContaining(doc, needle){
         const n = needle.toLowerCase();
         for(const h of doc.querySelectorAll('h1,h2,h3,h4,h5,h6')){
@@ -234,6 +241,7 @@
         }
         return null;
       }
+
       function findBoundaryHeading(doc, startHeading){
         const headings = Array.from(doc.querySelectorAll('h1,h2,h3,h4,h5,h6'));
         const startIdx = headings.indexOf(startHeading);
@@ -244,6 +252,7 @@
         }
         return null;
       }
+
       function findLeafWithText(doc, needle, { exact=false, withinStart=null, withinEnd=null } = {}){
         const n = needle.toLowerCase();
         const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_ELEMENT, {
@@ -262,6 +271,7 @@
         while((cur = walker.nextNode())) return cur;
         return null;
       }
+
       function valueNearLabel(labelEl){
         if(!labelEl) return '';
 
@@ -315,24 +325,20 @@
         return null;
       }
 
-      // --- Min-days: find the actual input/control in the source page and set it ---
       function findMinDaysControl(doc){
         const label = findLeafWithText(doc, 'Min days after last sheet date', { exact:false });
         if(label){
           const cluster = label.closest && (label.closest('div') || label.closest('section') || label.parentElement);
           if(cluster){
-            // Prefer input/select inside same cluster
             const ctl = cluster.querySelector && cluster.querySelector('input,select,textarea');
             if(ctl) return ctl;
           }
-          // Try sibling/parent neighborhood
           const p = label.parentElement;
           if(p){
             const ctl2 = p.querySelector && p.querySelector('input,select,textarea');
             if(ctl2) return ctl2;
           }
         }
-        // fallback: first numeric input on page (least reliable)
         const num = doc.querySelector('input[type="number"]') || doc.querySelector('input');
         return num || null;
       }
@@ -349,7 +355,6 @@
         try{
           ctl.focus && ctl.focus();
           if(ctl.tagName && ctl.tagName.toUpperCase() === 'SELECT'){
-            // try select option matching value
             const opts = Array.from(ctl.options || []);
             const match = opts.find(o => String(o.value) === v || clean(o.textContent) === v);
             if(match) ctl.value = match.value;
@@ -403,12 +408,6 @@
         post({ type:'prediction', method: METHOD, time: time ?? '—', price: price ?? '—', at: Date.now() });
       }
 
-      function validMinDays(v){
-        if(v === '' || v == null) return false;
-        const n = Number(v);
-        return Number.isFinite(n) && n >= 0;
-      }
-
       async function clickAndPoll(){
         if(!canAccessFrame()){
           panelError('Cannot read source page (same-origin required).');
@@ -422,21 +421,19 @@
           return;
         }
 
-        // Ensure min-days pushed into the source before clicking
         const md = String(minDaysInput.value ?? '').trim();
         if(validMinDays(md)){
           const ok = applyMinDaysToSource(md);
-          if(!ok){
-            // not fatal; but warn
-            setStatus('err', 'Min-days control not found in source');
-          }
+          if(!ok) setStatus('err', 'Min-days control not found in source');
         }
 
         predictBtn.disabled = true;
         setStatus('warn', 'Running prediction…');
 
         const before = extractTimePrice(doc);
-        try{ sourceBtn.click(); } catch(e){
+
+        try{ sourceBtn.click(); }
+        catch(e){
           panelError('Failed to click source “Load & Predict” button.');
           return;
         }
@@ -476,27 +473,11 @@
         }, INTERVAL_MS);
       }
 
-      // Listen for parent broadcast: set_min_days
-      window.addEventListener('message', (event) => {
-        if(event.origin !== window.location.origin) return;
-        const msg = event.data || {};
-        if(msg.type === 'set_min_days'){
-          const v = String(msg.value ?? '').trim();
-          if(validMinDays(v)){
-            minDaysInput.value = v;
-            const ok = applyMinDaysToSource(v);
-            setStatus(ok ? 'ok' : 'err', ok ? 'Min-days applied' : 'Min-days control not found');
-          }
-        }
-      });
-
-      // User edits local min-days (sync to parent + push to source)
       minDaysInput.addEventListener('change', () => {
         const v = String(minDaysInput.value ?? '').trim();
         if(!validMinDays(v)) return;
         const ok = applyMinDaysToSource(v);
         setStatus(ok ? 'ok' : 'err', ok ? 'Min-days applied' : 'Min-days control not found');
-        post({ type:'min_days_changed', method: METHOD, value: v });
       });
 
       minDaysInput.addEventListener('keydown', (e) => {
@@ -505,7 +486,6 @@
         }
       });
 
-      // Load the source in hidden iframe (must be same-origin)
       sourceFrame.src = SOURCE_URL;
 
       sourceFrame.addEventListener('load', () => {
@@ -518,20 +498,12 @@
           setStatus('ok', 'Ready');
           predictBtn.disabled = false;
 
-          // Try to auto-fill minDays from source once
           try{
             const v = extractMinDays(getDoc());
-            if(v && v !== '—' && !minDaysInput.value){
-              minDaysInput.value = v;
-              post({ type:'min_days_detected', method: METHOD, value: v });
-            }else if(v){
-              post({ type:'min_days_detected', method: METHOD, value: v });
-            }
+            if(v && v !== '—' && !minDaysInput.value) minDaysInput.value = v;
           }catch(_){}
 
-          // Initial time/price display
           updateUI(extractTimePrice(getDoc()));
-
           post({ type:'ready', method: METHOD });
         }, 250);
       });
