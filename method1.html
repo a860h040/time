@@ -94,7 +94,7 @@
     </div>
 
     <div class="hint">
-      Source: <a href="https://a860h040.github.io/time/index1" target="_blank" rel="noopener">open Method 1 page</a>
+      Source: <a id="srcLink" href="#" target="_blank" rel="noopener">open Method 1 source</a>
     </div>
   </div>
 
@@ -103,7 +103,11 @@
   <script>
     (function(){
       const METHOD = 'method1';
+
+      // 🚨 IMPORTANT: set this to your REAL Method 1 predictor page (not the wrapper/panel)
       const SOURCE_URL = 'https://a860h040.github.io/time/index1';
+
+      document.getElementById('srcLink').href = SOURCE_URL;
 
       const predictBtn = document.getElementById('predictBtn');
       const statusDot  = document.getElementById('statusDot');
@@ -129,10 +133,9 @@
         post({ type:'panel_error', method: METHOD, message });
       }
 
-      // IMPORTANT: must be same-origin
       const sameOrigin = (new URL(SOURCE_URL)).origin === window.location.origin;
       if(!sameOrigin){
-        panelError(`Origin mismatch. This page is ${window.location.origin} but source is ${(new URL(SOURCE_URL)).origin}. Host on https://a860h040.github.io/...`);
+        panelError(`Origin mismatch. Host this dashboard on ${(new URL(SOURCE_URL)).origin} to allow extraction.`);
         return;
       }
 
@@ -142,43 +145,30 @@
       }
       function getDoc(){ return sourceFrame.contentDocument; }
 
-      // ---- Text-based extraction (very reliable) ----
+      function looksLikeWrapperPanel(doc){
+        // If you accidentally pointed SOURCE_URL at the panel-wrapper (like "Method 1 Panel"),
+        // it contains our hidden iframe id="sourceFrame".
+        return !!doc.getElementById('sourceFrame') && /panel/i.test(doc.title || '');
+      }
+
       function getLines(doc){
         const raw = (doc && doc.body) ? doc.body.innerText : '';
         return raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
       }
 
-      function extractSection(lines){
-        // choose the LAST occurrence of the Next Extremum section (pages can include duplicates)
-        let start = -1;
-        for(let i=0;i<lines.length;i++){
-          if(lines[i].toLowerCase().includes('next extremum (prediction)')) start = i;
-        }
-        if(start < 0) return lines;
-
-        const out = [];
-        for(let i=start; i<Math.min(lines.length, start+100); i++){
-          const t = lines[i].toLowerCase();
-          if(i !== start && (t.includes('10-day price path') || t.startsWith('4)') || t.includes('chart'))) break;
-          out.push(lines[i]);
-        }
-        return out;
-      }
-
-      function valueAfter(sectionLines, label){
+      function valueAfter(lines, label){
         const L = label.toLowerCase();
-        for(let i=0;i<sectionLines.length;i++){
-          if(sectionLines[i].toLowerCase() === L){
-            for(let j=i+1;j<sectionLines.length;j++){
-              const v = sectionLines[j];
+        for(let i=0;i<lines.length;i++){
+          if(lines[i].toLowerCase() === L){
+            for(let j=i+1;j<lines.length;j++){
+              const v = lines[j];
               const vl = v.toLowerCase();
               if([ 'type','time','price','consensus' ].includes(vl)) continue;
               return v;
             }
           }
         }
-        // fallback "Label: value"
-        for(const line of sectionLines){
+        for(const line of lines){
           const m = line.match(new RegExp('^' + label + '\\s*[:\\-—]?\\s*(.+)$','i'));
           if(m && m[1]) return m[1].trim();
         }
@@ -187,28 +177,21 @@
 
       function extractTimePrice(doc){
         const lines = getLines(doc);
-        const sec = extractSection(lines);
         return {
-          time:  valueAfter(sec, 'Time')  || '—',
-          price: valueAfter(sec, 'Price') || '—'
+          time:  valueAfter(lines, 'Time')  || '—',
+          price: valueAfter(lines, 'Price') || '—'
         };
       }
 
-      function extractMinDaysText(doc){
-        const lines = getLines(doc);
-        const needle = 'min days after last sheet date';
-        for(let i=0;i<lines.length;i++){
-          if(lines[i].toLowerCase() === needle){
-            for(let j=i+1;j<lines.length;j++){
-              const v = lines[j];
-              if(v) return v;
-            }
-          }
-        }
-        return '';
+      function updateUI(v){
+        timeEl.textContent = v.time ?? '—';
+        priceEl.textContent = v.price ?? '—';
       }
 
-      // ---- Find + set the Min Days control (scored heuristic) ----
+      function sendPrediction(v){
+        post({ type:'prediction', method: METHOD, time: v.time ?? '—', price: v.price ?? '—', at: Date.now() });
+      }
+
       function scoreMinDaysControl(el){
         let s = 0;
         const id = (el.id || '').toLowerCase();
@@ -221,7 +204,6 @@
         if(type === 'number') s += 4;
         if(id.includes('min') && id.includes('day')) s += 10;
         if(nm.includes('min') && nm.includes('day')) s += 10;
-        if(id.includes('days') || nm.includes('days')) s += 3;
         if(ph.includes('min days') || al.includes('min days')) s += 8;
         if(txtParent.includes('min days after last sheet date')) s += 12;
         return s;
@@ -232,12 +214,9 @@
         let best = null, bestScore = 0;
         for(const el of inputs){
           const sc = scoreMinDaysControl(el);
-          if(sc > bestScore){
-            bestScore = sc;
-            best = el;
-          }
+          if(sc > bestScore){ bestScore = sc; best = el; }
         }
-        return (bestScore >= 8) ? best : null; // require some confidence
+        return (bestScore >= 8) ? best : null;
       }
 
       function applyMinDaysToSource(value){
@@ -257,7 +236,6 @@
         }
       }
 
-      // ---- Find predict buttons (click them safely) ----
       function findPredictButtons(doc){
         const nodes = Array.from(doc.querySelectorAll('button,input[type="button"],input[type="submit"],a,[role="button"]'));
         const out = [];
@@ -269,42 +247,50 @@
         return out;
       }
 
-      function updateUI(v){
-        timeEl.textContent = v.time ?? '—';
-        priceEl.textContent = v.price ?? '—';
-      }
-
-      function sendPrediction(v){
-        post({ type:'prediction', method: METHOD, time: v.time ?? '—', price: v.price ?? '—', at: Date.now() });
+      function robustClick(el){
+        try{
+          const r = el.getBoundingClientRect?.();
+          const x = r ? r.left + Math.min(10, r.width/2) : 10;
+          const y = r ? r.top + Math.min(10, r.height/2) : 10;
+          ['pointerdown','mousedown','mouseup','click'].forEach(type=>{
+            el.dispatchEvent(new MouseEvent(type, { bubbles:true, cancelable:true, clientX:x, clientY:y, buttons:1 }));
+          });
+        }catch(_){
+          try{ el.click(); }catch(__){}
+        }
       }
 
       async function clickAndPoll(){
-        if(!canAccessFrame()) return panelError('Cannot access source frame (unexpected).');
+        if(!canAccessFrame()) return panelError('Cannot access source frame.');
 
         const doc = getDoc();
+        if(looksLikeWrapperPanel(doc)){
+          panelError(
+            'SOURCE_URL points to the wrapper/panel page (not the real Method 1 predictor). ' +
+            'Restore the real predictor page and set SOURCE_URL to that URL.'
+          );
+          return;
+        }
+
         const buttons = findPredictButtons(doc);
-        if(buttons.length === 0) return panelError('Could not find any “Load & Predict” buttons on source.');
+        if(buttons.length === 0) return panelError('Could not find any “Load & Predict” button on Method 1 source.');
 
         const md = String(minDaysInput.value ?? '').trim();
         if(md !== ''){
           const ok = applyMinDaysToSource(md);
-          if(!ok){
-            setStatus('err', 'Could not find Min-days input in source page');
-          }
+          if(!ok) setStatus('err', 'Min-days input not found inside source page');
         }
 
         predictBtn.disabled = true;
         setStatus('warn', 'Running prediction…');
 
-        const before = extractTimePrice(doc);
-
-        // Click all candidates (some pages may have duplicate non-functional buttons)
+        // Click candidates
         for(const b of buttons){
-          try{ b.click(); }catch(_){}
+          robustClick(b);
         }
 
         const start = Date.now();
-        const TIMEOUT = 20000;
+        const TIMEOUT = 60000; // 60s
         const TICK = 350;
 
         const timer = setInterval(() => {
@@ -317,10 +303,8 @@
           const now = extractTimePrice(getDoc());
           updateUI(now);
 
-          const changed = clean(now.time) !== clean(before.time) || clean(now.price) !== clean(before.price);
           const ready = clean(now.time) && now.time !== '—' && clean(now.price) && now.price !== '—';
-
-          if(changed && ready){
+          if(ready){
             clearInterval(timer);
             setStatus('ok', 'Updated');
             predictBtn.disabled = false;
@@ -330,9 +314,8 @@
 
           if(Date.now() - start > TIMEOUT){
             clearInterval(timer);
-            setStatus('err', 'Timed out (no new values)');
+            setStatus('err', 'Timed out (Time/Price never became available)');
             predictBtn.disabled = false;
-            sendPrediction(now);
           }
         }, TICK);
       }
@@ -348,19 +331,20 @@
 
       sourceFrame.addEventListener('load', () => {
         setTimeout(() => {
-          if(!canAccessFrame()) return panelError('Same-origin blocked (must host on https://a860h040.github.io/...).');
+          if(!canAccessFrame()) return panelError('Same-origin blocked. Must host on the same GitHub Pages domain.');
+
+          const doc = getDoc();
+          if(looksLikeWrapperPanel(doc)){
+            panelError(
+              'Your Method 1 URL is currently serving a wrapper/panel page (detected “Panel” + #sourceFrame). ' +
+              'That means you overwrote the real predictor page. Fix SOURCE_URL to the real predictor page.'
+            );
+            return;
+          }
 
           setStatus('ok', 'Ready');
           predictBtn.disabled = false;
-
-          // Prefill min-days from source (if shown as text)
-          const mdText = extractMinDaysText(getDoc());
-          if(mdText && mdText !== '—' && !minDaysInput.value){
-            const m = mdText.match(/-?\d+(\.\d+)?/);
-            if(m) minDaysInput.value = m[0];
-          }
-
-          updateUI(extractTimePrice(getDoc()));
+          updateUI(extractTimePrice(doc));
           post({ type:'ready', method: METHOD });
         }, 300);
       });
