@@ -7,13 +7,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-
   <style>
     :root{
       --bg:#0b1020; --panel:#111a33; --panel2:#0f1730;
       --hair:rgba(255,255,255,.10); --hair2:rgba(255,255,255,.08);
       --text:#eaf0ff; --muted:rgba(234,240,255,.72);
-      --accent:#5aa0ff; --ok:#2bd07e; --warn:#ffd166; --err:#ff6b6b;
+      --ok:#2bd07e; --warn:#ffd166; --err:#ff6b6b;
       --radius:18px;
     }
     *{ box-sizing:border-box; }
@@ -97,8 +96,7 @@
       <div>
         <h1>Next Extremum (prediction) — Method 1 vs Method 2</h1>
         <div class="sub">
-          Each method has its <b>own</b> “Min days after last sheet date”.
-          Table merges rows by <b>Time</b>.
+          Each method has its <b>own</b> Min-days input. Table merges rows by <b>Time</b>.
         </div>
       </div>
       <div class="status">
@@ -161,7 +159,6 @@
       const tbody = document.getElementById('rows');
 
       const panelReady = { method1: false, method2: false };
-
       const byTime = new Map();   // time -> {time, m1, m2}
       const order = [];           // insertion order of time keys
 
@@ -220,7 +217,6 @@
 
       window.addEventListener('message', (event) => {
         if(event.origin !== window.location.origin) return;
-
         const msg = event.data || {};
 
         if(msg.type === 'ready'){
