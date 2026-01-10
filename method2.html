@@ -1,328 +1,436 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Method 2 Panel</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-
+  <title>Method 2 — Minimal Predictor</title>
   <style>
     :root{
-      --hair:rgba(255,255,255,.10);
-      --hair2:rgba(255,255,255,.08);
-      --text:#eaf0ff;
-      --muted:rgba(234,240,255,.72);
-      --ok:#2bd07e; --warn:#ffd166; --err:#ff6b6b;
-      --radius:16px;
+      --bg:#0b1020; --panel:#121a2f; --panel2:#0f162b; --ink:#e9eefc; --muted:#9fb0d1;
+      --accent:#5aa0ff; --hair:rgba(255,255,255,.08); --err:#ff6b6b; --ok:#2bd07e; --warn:#ffd166;
     }
-    *{ box-sizing:border-box; }
-    body{ margin:0; font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; background:transparent; color:var(--text); }
-    .panel{ padding:14px; display:flex; flex-direction:column; gap:12px; }
-    .top{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    *{box-sizing:border-box}
+    body{margin:0;background:transparent;color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+    .box{padding:14px}
+    .top{
+      display:flex;gap:10px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;
+      margin-bottom:12px;
+    }
+    .controls{
+      display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;
+    }
+    label{display:block;font-size:12px;color:var(--muted);margin:0 0 6px}
+    input{
+      width:180px;max-width:100%;
+      padding:10px 12px;border-radius:12px;border:1px solid var(--hair);
+      background:var(--panel2);color:var(--ink);outline:none;
+    }
     .btn{
-      appearance:none; border:1px solid rgba(90,160,255,.55);
-      background:linear-gradient(180deg, rgba(90,160,255,.25), rgba(90,160,255,.10));
-      color:var(--text); font-weight:800; letter-spacing:.2px;
-      padding:10px 12px; border-radius:12px; cursor:pointer;
-      transition:transform .08s ease; user-select:none; white-space:nowrap;
+      display:inline-flex;align-items:center;gap:10px;
+      background:var(--accent);color:#06122c;border:none;
+      padding:10px 14px;border-radius:12px;font-weight:800;cursor:pointer;
+      box-shadow:0 10px 22px rgba(90,160,255,.25);
     }
-    .btn:active{ transform:translateY(1px); }
-    .btn[disabled]{ opacity:.55; cursor:not-allowed; }
-
-    .pill{
-      display:inline-flex; align-items:center; gap:8px; padding:7px 10px; border-radius:999px;
-      border:1px solid var(--hair2); background:rgba(255,255,255,.04);
-      color:var(--muted); font-size:12px; white-space:nowrap;
+    .btn:disabled{opacity:.6;cursor:not-allowed}
+    .btn:active{transform:translateY(1px)}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .stat{
+      background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+      border:1px solid var(--hair);border-radius:14px;padding:12px;
+      min-height:76px;
     }
-    .dot{ width:8px;height:8px;border-radius:50%; background:var(--warn); box-shadow:0 0 0 4px rgba(255,209,102,.12); }
-    .dot.ok{ background:var(--ok); box-shadow:0 0 0 4px rgba(43,208,126,.12); }
-    .dot.err{ background:var(--err); box-shadow:0 0 0 4px rgba(255,107,107,.12); }
-
-    .grid{
-      display:grid; gap:10px; padding:10px;
-      border:1px solid var(--hair); border-radius:var(--radius);
-      background:rgba(255,255,255,.03);
-    }
-    .row{
-      display:flex; align-items:center; justify-content:space-between; gap:12px;
-      padding:8px 8px; border-radius:12px;
-      background:rgba(0,0,0,.12); border:1px solid rgba(255,255,255,.06);
-    }
-    .k{ font-size:12px; color:var(--muted); }
-    .v{ font-size:13px; font-weight:800; color:rgba(234,240,255,.95); text-align:right; word-break:break-word; }
-
-    .minInput{
-      width:120px; border-radius:12px;
-      border:1px solid rgba(255,255,255,.10);
-      background:rgba(0,0,0,.22); color:var(--text);
-      padding:10px 10px; font-weight:800; outline:none; text-align:right;
-    }
-    .minInput:focus{
-      border-color:rgba(90,160,255,.55);
-      box-shadow:0 0 0 4px rgba(90,160,255,.14);
-    }
-    .hint{ font-size:11.5px; color:rgba(234,240,255,.60); line-height:1.35; }
-    .hint a{ color:rgba(90,160,255,.95); text-decoration:none; }
-    .hint a:hover{ text-decoration:underline; }
-
-    #sourceFrame{
-      position:absolute; left:-99999px; top:-99999px;
-      width:1280px; height:720px; opacity:0; pointer-events:none; border:0;
-    }
+    .stat b{display:block;color:var(--muted);font-size:12px;margin-bottom:6px}
+    .big{font-size:20px;font-weight:900;letter-spacing:.2px}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+    .status{margin-top:10px;font-size:12px;color:var(--muted);line-height:1.35}
+    .status.err{color:var(--err)}
+    .hidden{display:none!important}
   </style>
 </head>
-
 <body>
-  <div class="panel">
+  <div class="box">
     <div class="top">
-      <button class="btn" id="predictBtn" disabled>Load &amp; Predict</button>
-      <div class="pill">
-        <span class="dot" id="statusDot"></span>
-        <span id="statusText">Loading source…</span>
+      <div class="controls">
+        <div>
+          <label>Min days after last sheet date</label>
+          <input id="leadDays" type="number" value="10" min="0" />
+        </div>
+        <button class="btn" id="runBtn">Load &amp; Predict</button>
       </div>
     </div>
 
     <div class="grid">
-      <div class="row">
-        <div class="k">Min days after last sheet date</div>
-        <input id="minDaysInput" class="minInput" type="number" min="0" step="1" placeholder="e.g., 4" />
+      <div class="stat">
+        <b>Time</b>
+        <div id="prettyTime" class="big mono">—</div>
       </div>
-      <div class="row"><div class="k">Time</div><div class="v" id="time">—</div></div>
-      <div class="row"><div class="k">Price</div><div class="v" id="price">—</div></div>
+      <div class="stat">
+        <b>Price</b>
+        <div id="prettyPrice" class="big mono">—</div>
+      </div>
     </div>
 
-    <div class="hint">
-      Source: <a id="srcLink" href="#" target="_blank" rel="noopener">open Method 2 source</a>
+    <div id="status" class="status">Ready.</div>
+
+    <!-- Hidden settings required by your original algorithm -->
+    <div class="hidden">
+      <input id="apiUrl" value="https://script.google.com/macros/s/AKfycbyF_bYJh4obYnwPDQ3kqXI-4mTw2IbN2c8uXe4qmW4bQvhfnvLVAIgROWIARTlBjkWd/exec" />
+      <input id="delta" value="4" />
+      <input id="maxRows" value="50000" />
+      <input id="winSwings" value="120" />
+      <input id="bootRuns" value="200" />
+      <input id="ridgeLam" value="0.4" />
     </div>
   </div>
 
-  <iframe id="sourceFrame" title="Method 2 Source" src="about:blank"></iframe>
+<script>
+/* =================== Utilities (from your Model 2) =================== */
+const METHOD = "method2";
+const fmtDate = d => d instanceof Date ? d.toISOString().slice(0,10) : String(d);
 
-  <script>
-    (function(){
-      const METHOD = 'method2';
-      const SOURCE_URL = 'https://a860h040.github.io/time/index2';
-      document.getElementById('srcLink').href = SOURCE_URL;
+function post(type, payload={}){
+  try{ window.parent.postMessage({ type, method: METHOD, ...payload }, "*"); }catch(_){}
+}
+function sendHeight(){
+  const h = Math.max(120, document.documentElement.scrollHeight || 0);
+  post("resize", { height: h });
+}
 
-      const predictBtn = document.getElementById('predictBtn');
-      const statusDot  = document.getElementById('statusDot');
-      const statusText = document.getElementById('statusText');
-      const minDaysInput = document.getElementById('minDaysInput');
-      const timeEl  = document.getElementById('time');
-      const priceEl = document.getElementById('price');
-      const sourceFrame = document.getElementById('sourceFrame');
+function mean(xs){ return xs.length? xs.reduce((a,b)=>a+b,0)/xs.length : 0; }
+function stdev(xs){
+  if(xs.length<2) return 0;
+  const m = mean(xs);
+  const v = xs.reduce((s,x)=>s+(x-m)*(x-m),0) / (xs.length-1);
+  return Math.sqrt(v);
+}
+function ema(values, span=10){
+  if(!values.length) return [];
+  const a = 2/(span+1);
+  const out = Array(values.length);
+  out[0] = values[0];
+  for(let i=1;i<values.length;i++) out[i] = a*values[i] + (1-a)*out[i-1];
+  return out;
+}
+function logReturns(series){
+  const out = [];
+  for(let i=1;i<series.length;i++){
+    const p0 = series[i-1].p, p1 = series[i].p;
+    if(p0>0 && p1>0) out.push(Math.log(p1/p0));
+  }
+  return out;
+}
+function clamp(x, lo, hi){ return Math.min(hi, Math.max(lo, x)); }
 
-      function clean(s){ return String(s ?? '').replace(/\s+/g,' ').trim(); }
-      function setStatus(state, text){
-        statusText.textContent = text;
-        statusDot.classList.remove('ok','err');
-        if(state === 'ok') statusDot.classList.add('ok');
-        if(state === 'err') statusDot.classList.add('err');
+/* JSONP loader */
+function jsonp(url, timeoutMs=20000){
+  return new Promise((resolve, reject)=>{
+    const cbName = 'cb_' + Math.random().toString(36).slice(2);
+    const sep = url.includes('?') ? '&' : '?';
+    const script = document.createElement('script');
+    let timer = null;
+
+    function cleanup(){
+      try{ delete window[cbName]; }catch(_){}
+      if(script && script.parentNode) script.parentNode.removeChild(script);
+      if(timer) clearTimeout(timer);
+    }
+
+    window[cbName] = (data)=>{ cleanup(); resolve(data); };
+    script.src = `${url}${sep}callback=${cbName}`;
+    script.onerror = ()=>{ cleanup(); reject(new Error("JSONP network error")); };
+
+    document.body.appendChild(script);
+    timer = setTimeout(()=>{ cleanup(); reject(new Error("JSONP timeout")); }, timeoutMs);
+  });
+}
+
+/* Fallback: plain fetch if CORS allows */
+async function getDataViaApi(url){
+  try{
+    return await jsonp(url);
+  }catch(e1){
+    try{
+      const res = await fetch(url, { cache: "no-store" });
+      if(!res.ok) throw new Error("HTTP " + res.status);
+      return await res.json();
+    }catch(_){
+      throw e1;
+    }
+  }
+}
+
+// Basic ZigZag extrema detector
+function zigzagExtrema(series, deltaPct=4){
+  if(series.length<3) return [];
+  const delta = deltaPct/100;
+  let piv = series[0].p, pivIdx = 0, trend = 0;
+  let lastExt = {i:0, t: series[0].t, p: series[0].p, type: 'trough'};
+  const out = [];
+  for(let i=1;i<series.length;i++){
+    const pr = series[i].p;
+    if (trend >= 0) {
+      if (pr >= piv) { piv = pr; pivIdx = i; }
+      if (piv > 0 && (piv - pr)/piv >= delta) {
+        const ex = {i: pivIdx, t: series[pivIdx].t, p: series[pivIdx].p, type: 'peak'};
+        if (out.length===0 && lastExt.type === ex.type) out.push(lastExt);
+        out.push(ex);
+        trend = -1; piv = pr; pivIdx = i;
       }
-      function post(msg){
-        try{ window.parent.postMessage(msg, window.location.origin); }catch(_){}
+    }
+    if (trend <= 0) {
+      if (pr <= piv) { piv = pr; pivIdx = i; }
+      if (pr > 0 && (pr - piv)/piv >= delta) {
+        const ex = {i: pivIdx, t: series[pivIdx].t, p: series[pivIdx].p, type: 'trough'};
+        if (out.length===0 && lastExt.type === ex.type) out.push(lastExt);
+        out.push(ex);
+        trend = +1; piv = pr; pivIdx = i;
       }
-      function panelError(message){
-        setStatus('err', message);
-        predictBtn.disabled = true;
-        post({ type:'panel_error', method: METHOD, message });
-      }
+    }
+  }
+  const cleaned = [];
+  for (const e of out){
+    if (cleaned.length && e.i === cleaned[cleaned.length-1].i) continue;
+    if (cleaned.length && e.type === cleaned[cleaned.length-1].type) continue;
+    cleaned.push(e);
+  }
+  return cleaned;
+}
 
-      const sameOrigin = (new URL(SOURCE_URL)).origin === window.location.origin;
-      if(!sameOrigin){
-        panelError(`Origin mismatch. Host this dashboard on ${(new URL(SOURCE_URL)).origin} to allow extraction.`);
-        return;
-      }
+function ensembleExtrema(series, deltas=[3,4,5,6]){
+  const all = deltas.map(d => zigzagExtrema(series, d));
+  const votes = new Map();
+  for(const ext of all){
+    for(const e of ext){
+      const key = e.i;
+      if(!votes.has(key)) votes.set(key, []);
+      votes.get(key).push(e);
+    }
+  }
+  const merged = [];
+  for(const [i, arr] of votes.entries()){
+    if(arr.length < 2) continue;
+    const peaks = arr.filter(x=>x.type==='peak').length;
+    const troughs = arr.length - peaks;
+    const type = (peaks>troughs) ? 'peak' : 'trough';
+    const e0 = arr[0];
+    merged.push({i: Number(i), t:e0.t, p:e0.p, type});
+  }
+  merged.sort((a,b)=>a.i-b.i);
+  const cleaned=[];
+  for(const e of merged){
+    if(cleaned.length && e.type===cleaned.at(-1).type) continue;
+    cleaned.push(e);
+  }
+  return cleaned;
+}
 
-      function canAccessFrame(){
-        try{ return !!(sourceFrame.contentDocument && sourceFrame.contentDocument.body); }
-        catch(e){ return false; }
-      }
-      function getDoc(){ return sourceFrame.contentDocument; }
+function winsorize(arr, pLo=0.10, pHi=0.90){
+  if(arr.length < 5) return arr.slice();
+  const xs = arr.slice().sort((a,b)=>a-b);
+  const q = (p)=> {
+    const pos = (xs.length-1)*p;
+    const lo = Math.floor(pos), hi = Math.ceil(pos);
+    const w = pos - lo;
+    return xs[lo]*(1-w) + xs[hi]*w;
+  };
+  const lo = q(pLo), hi = q(pHi);
+  return arr.map(v => Math.min(hi, Math.max(lo, v)));
+}
 
-      function getLines(doc){
-        const raw = (doc && doc.body) ? doc.body.innerText : '';
-        return raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-      }
+function olsAR1_ridge(y, x, lambda=0.4){
+  const n = y.length;
+  let sumx=0,sumy=0,sumxx=0,sumxy=0;
+  for(let i=0;i<n;i++){ sumx+=x[i]; sumy+=y[i]; sumxx+=x[i]*x[i]; sumxy+=x[i]*y[i]; }
+  const denom = (n*(sumxx+lambda) - sumx*sumx);
+  if(Math.abs(denom) < 1e-12) return {alpha: NaN, phi: 0};
+  const phi = (n*sumxy - sumx*sumy) / denom;
+  const alpha = (sumy - phi*sumx)/n;
+  return {alpha, phi};
+}
 
-      function valueAfter(lines, label){
-        const L = label.toLowerCase();
-        for(let i=0;i<lines.length;i++){
-          if(lines[i].toLowerCase() === L){
-            for(let j=i+1;j<lines.length;j++){
-              const v = lines[j];
-              const vl = v.toLowerCase();
-              if([ 'type','time','price','consensus' ].includes(vl)) continue;
-              return v;
-            }
-          }
-        }
-        for(const line of lines){
-          const m = line.match(new RegExp('^' + label + '\\s*[:\\-—]?\\s*(.+)$','i'));
-          if(m && m[1]) return m[1].trim();
-        }
-        return '';
-      }
+function prepareSwings(extrema, windowSwings=120, doWinsor=true){
+  const durs=[], amps=[], dirs=[];
+  for (let k=1;k<extrema.length;k++){
+    const prev=extrema[k-1], cur=extrema[k];
+    durs.push((cur.t - prev.t)/(1000*60*60*24));
+    amps.push(Math.abs(cur.p - prev.p));
+    dirs.push(cur.p - prev.p > 0 ? +1 : -1);
+  }
+  let D=durs, A=amps, R=dirs;
+  if(D.length > windowSwings){
+    D = D.slice(-windowSwings);
+    A = A.slice(-windowSwings);
+    R = R.slice(-windowSwings);
+  }
+  if(doWinsor && D.length>=10){
+    D = winsorize(D, 0.10, 0.90);
+    A = winsorize(A, 0.10, 0.90);
+  }
+  return {durs:D, amps:A, dirs:R};
+}
 
-      function extractTimePrice(doc){
-        const lines = getLines(doc);
-        return {
-          time:  valueAfter(lines, 'Time')  || '—',
-          price: valueAfter(lines, 'Price') || '—'
-        };
-      }
+/* =================== Minimal runner (your Method 2 logic, trimmed UI) =================== */
+const runBtn = document.getElementById("runBtn");
+const statusEl = document.getElementById("status");
+const prettyTime  = document.getElementById("prettyTime");
+const prettyPrice = document.getElementById("prettyPrice");
 
-      function updateUI(v){
-        timeEl.textContent = v.time ?? '—';
-        priceEl.textContent = v.price ?? '—';
-      }
+function setStatus(msg, isErr=false){
+  statusEl.textContent = msg;
+  statusEl.classList.toggle("err", !!isErr);
+  sendHeight();
+}
 
-      function sendPrediction(v){
-        post({ type:'prediction', method: METHOD, time: v.time ?? '—', price: v.price ?? '—', at: Date.now() });
-      }
+async function runPredict(){
+  const url = document.getElementById('apiUrl').value.trim();
+  const baseDelta = parseFloat(document.getElementById('delta').value) || 4;
+  const leadDays = Math.max(0, parseInt(document.getElementById('leadDays').value) || 10);
+  const maxRows = parseInt(document.getElementById('maxRows').value) || 50000;
+  const windowSwings = Math.max(20, parseInt(document.getElementById('winSwings').value) || 120);
+  const B = Math.max(50, parseInt(document.getElementById('bootRuns').value) || 200);
+  const ridgeLamBase = Math.max(0, parseFloat(document.getElementById('ridgeLam').value) || 0.4);
 
-      function scoreMinDaysControl(el){
-        let s = 0;
-        const id = (el.id || '').toLowerCase();
-        const nm = (el.name || '').toLowerCase();
-        const ph = (el.placeholder || '').toLowerCase();
-        const al = (el.getAttribute('aria-label') || '').toLowerCase();
-        const type = (el.type || '').toLowerCase();
-        const txtParent = clean(el.parentElement ? el.parentElement.innerText : '').toLowerCase();
+  if(!url){
+    setStatus("Missing API URL.", true);
+    throw new Error("Missing API URL");
+  }
 
-        if(type === 'number') s += 4;
-        if(id.includes('min') && id.includes('day')) s += 10;
-        if(nm.includes('min') && nm.includes('day')) s += 10;
-        if(ph.includes('min days') || al.includes('min days')) s += 8;
-        if(txtParent.includes('min days after last sheet date')) s += 12;
-        return s;
-      }
+  const payload = await getDataViaApi(url);
+  if(!payload || !Array.isArray(payload.data)) throw new Error('Invalid response shape (expected {data:[...]})');
 
-      function findMinDaysControl(doc){
-        const inputs = Array.from(doc.querySelectorAll('input,select,textarea'));
-        let best = null, bestScore = 0;
-        for(const el of inputs){
-          const sc = scoreMinDaysControl(el);
-          if(sc > bestScore){ bestScore = sc; best = el; }
-        }
-        return (bestScore >= 8) ? best : null;
-      }
+  let series = payload.data
+    .map(r=>{
+      const d = new Date(r.date);
+      const p = Number(r.value);
+      return (isFinite(p) && d.toString() !== 'Invalid Date') ? {t:d, p:p} : null;
+    })
+    .filter(Boolean);
 
-      function applyMinDaysToSource(value){
-        if(!canAccessFrame()) return false;
-        const doc = getDoc();
-        const ctl = findMinDaysControl(doc);
-        if(!ctl) return false;
+  if(series.length > maxRows) series = series.slice(-maxRows);
+  series.sort((a,b)=>a.t-b.t);
 
-        try{
-          const v = String(value ?? '').trim();
-          ctl.value = v;
-          ctl.dispatchEvent(new Event('input', { bubbles:true }));
-          ctl.dispatchEvent(new Event('change', { bubbles:true }));
-          return true;
-        }catch(e){
-          return false;
-        }
-      }
+  if(series.length < 10){
+    throw new Error(`Only ${series.length} rows found. Need more history.`);
+  }
 
-      function findPredictButtons(doc){
-        const nodes = Array.from(doc.querySelectorAll('button,input[type="button"],input[type="submit"],a,[role="button"]'));
-        const out = [];
-        for(const el of nodes){
-          const txt = clean(el.innerText || el.value || el.getAttribute('aria-label') || '');
-          const tl  = txt.toLowerCase();
-          if(tl.includes('load') && tl.includes('predict')) out.push(el);
-        }
-        return out;
-      }
+  // --- Your Method 2 smoothing + adaptive delta ---
+  const rawPrices = series.map(s=>s.p);
+  const ema10 = ema(rawPrices, 10);
 
-      function robustClick(el){
-        try{
-          const r = el.getBoundingClientRect?.();
-          const x = r ? r.left + Math.min(10, r.width/2) : 10;
-          const y = r ? r.top + Math.min(10, r.height/2) : 10;
-          ['pointerdown','mousedown','mouseup','click'].forEach(type=>{
-            el.dispatchEvent(new MouseEvent(type, { bubbles:true, cancelable:true, clientX:x, clientY:y, buttons:1 }));
-          });
-        }catch(_){
-          try{ el.click(); }catch(__){}
-        }
-      }
+  const tail = Math.min(61, series.length);
+  const rets60 = logReturns(series.slice(-tail));
+  const volRecent = stdev(rets60);
+  const retsAll = logReturns(series);
+  const volRef = stdev(retsAll) || (volRecent || 1e-4);
 
-      async function clickAndPoll(){
-        if(!canAccessFrame()) return panelError('Cannot access source frame.');
+  const w = clamp(0.15 + 0.8 * (volRecent / (volRef + 1e-9)), 0.15, 0.50);
+  const seriesSmoothed = series.map((s,i)=> ({ t: s.t, p: (1-w)*s.p + w*ema10[i] }));
 
-        const doc = getDoc();
-        const buttons = findPredictButtons(doc);
-        if(buttons.length === 0) return panelError('Could not find any “Load & Predict” button on Method 2 source.');
+  const scale = Math.sqrt((volRef + 1e-9) / (volRecent + 1e-9));
+  const deltaAdj = clamp(baseDelta * scale, baseDelta*0.8, baseDelta*1.6);
+  const deltas = [
+    Math.max(1, Math.round(deltaAdj - 1)),
+    Math.max(1, Math.round(deltaAdj)),
+    Math.max(1, Math.round(deltaAdj + 1)),
+    Math.max(1, Math.round(deltaAdj + 2))
+  ];
 
-        const md = String(minDaysInput.value ?? '').trim();
-        if(md !== ''){
-          const ok = applyMinDaysToSource(md);
-          if(!ok) setStatus('err', 'Min-days input not found inside source page');
-        }
+  const extrema = ensembleExtrema(seriesSmoothed, deltas);
 
-        predictBtn.disabled = true;
-        setStatus('warn', 'Running prediction…');
+  if(extrema.length < 4){
+    throw new Error(`Detected ${extrema.length} extrema — need at least 4. Try lowering δ%.`);
+  }
 
-        for(const b of buttons){
-          robustClick(b);
-        }
+  const {durs, amps, dirs} = prepareSwings(extrema, windowSwings, true);
+  const dY = durs.slice(1), dX = durs.slice(0,-1);
+  const aY = amps.slice(1), aX = amps.slice(0,-1);
 
-        const start = Date.now();
-        const TIMEOUT = 60000;
-        const TICK = 350;
+  if(dY.length < 2 || aY.length < 2){
+    throw new Error(`Not enough swings to form AR pairs (swings=${durs.length}).`);
+  }
 
-        const timer = setInterval(() => {
-          if(!canAccessFrame()){
-            clearInterval(timer);
-            panelError('Lost access to source page.');
-            return;
-          }
+  const lamScale = clamp(volRecent / (volRef + 1e-9), 0.6, 1.8);
+  const ridgeLamEff = clamp(ridgeLamBase * lamScale, 0.1, 1.2);
 
-          const now = extractTimePrice(getDoc());
-          updateUI(now);
+  const dAR = olsAR1_ridge(dY, dX, ridgeLamEff);
+  const aAR = olsAR1_ridge(aY, aX, ridgeLamEff);
 
-          const ready = clean(now.time) && now.time !== '—' && clean(now.price) && now.price !== '—';
-          if(ready){
-            clearInterval(timer);
-            setStatus('ok', 'Updated');
-            predictBtn.disabled = false;
-            sendPrediction(now);
-            return;
-          }
+  const lastExt = extrema.at(-1);
+  const lastSwingDir = dirs.at(-1);
 
-          if(Date.now() - start > TIMEOUT){
-            clearInterval(timer);
-            setStatus('err', 'Timed out (Time/Price never became available)');
-            predictBtn.disabled = false;
-          }
-        }, TICK);
-      }
+  const dayMs = 24*60*60*1000;
+  const tMax = series.at(-1).t;
+  const targetMin = new Date(tMax.getTime() + leadDays * dayMs);
 
-      minDaysInput.addEventListener('change', () => {
-        const v = String(minDaysInput.value ?? '').trim();
-        if(v === '') return;
-        const ok = applyMinDaysToSource(v);
-        setStatus(ok ? 'ok' : 'err', ok ? 'Min-days applied' : 'Min-days not found in source');
-      });
+  function simulateOnce(dAlpha, dPhi, aAlpha, aPhi){
+    let dPrev = durs.at(-1), aPrev = amps.at(-1);
+    const avgD = durs.reduce((s,v)=>s+v,0)/durs.length || 1;
+    const avgA = amps.reduce((s,v)=>s+v,0)/amps.length || 1;
+    let accTimeMs = 0, accPrice = 0, steps = 0, dir = -lastSwingDir, guard=0;
 
-      sourceFrame.src = SOURCE_URL + '?_=' + Date.now();
+    while (lastExt.t.getTime() + accTimeMs <= targetMin.getTime()) {
+      let dNext = dAlpha + dPhi * dPrev;
+      let aNext = aAlpha + aPhi * aPrev;
+      if(!Number.isFinite(dNext) || dNext <= 0) dNext = Math.max(1, avgD);
+      if(!Number.isFinite(aNext) || aNext <= 0) aNext = Math.max(1e-6, avgA);
+      accTimeMs += dNext * dayMs;
+      accPrice  += dir * aNext;
+      dPrev = dNext; aPrev = aNext; dir = -dir; steps++;
+      if(++guard > 10000) break;
+    }
 
-      sourceFrame.addEventListener('load', () => {
-        setTimeout(() => {
-          if(!canAccessFrame()) return panelError('Same-origin blocked. Must host on the same GitHub Pages domain.');
-          setStatus('ok', 'Ready');
-          predictBtn.disabled = false;
-          updateUI(extractTimePrice(getDoc()));
-          post({ type:'ready', method: METHOD });
-        }, 300);
-      });
+    const nextTime = new Date(lastExt.t.getTime() + accTimeMs);
+    const nextPrice = lastExt.p + accPrice;
+    return {steps, nextTime, nextPrice};
+  }
 
-      predictBtn.addEventListener('click', clickAndPoll);
-    })();
-  </script>
+  const preds = [];
+  for(let b=0;b<B;b++){
+    const idxD = Array.from({length:dY.length}, ()=> Math.floor(Math.random()*dY.length));
+    const idxA = Array.from({length:aY.length}, ()=> Math.floor(Math.random()*aY.length));
+    const byD = idxD.map(i=>dY[i]), bxD = idxD.map(i=>dX[i]);
+    const byA = idxA.map(i=>aY[i]), bxA = idxA.map(i=>aX[i]);
+    const dARb = olsAR1_ridge(byD, bxD, ridgeLamEff);
+    const aARb = olsAR1_ridge(byA, bxA, ridgeLamEff);
+    preds.push(simulateOnce(dARb.alpha, dARb.phi, aARb.alpha, aARb.phi));
+  }
+
+  const timesSorted = preds.slice().sort((p,q)=>p.nextTime - q.nextTime);
+  const mid = Math.floor(timesSorted.length/2);
+  const medianTime = timesSorted[mid].nextTime;
+  const pricesSorted = preds.map(p=>p.nextPrice).sort((a,b)=>a-b);
+  const medianPrice = pricesSorted[mid];
+
+  return { leadDays, time: fmtDate(medianTime), price: Number(medianPrice).toFixed(4) };
+}
+
+runBtn.addEventListener("click", async () => {
+  runBtn.disabled = true;
+  post("running");
+  setStatus("Running…");
+  try{
+    const r = await runPredict();
+    prettyTime.textContent = r.time;
+    prettyPrice.textContent = r.price;
+    setStatus("OK");
+    post("prediction", r);
+  }catch(err){
+    const msg = err?.message || String(err);
+    prettyTime.textContent = "—";
+    prettyPrice.textContent = "—";
+    setStatus("Error: " + msg, true);
+    post("error", { message: msg });
+  }finally{
+    runBtn.disabled = false;
+    sendHeight();
+  }
+});
+
+window.addEventListener("load", () => {
+  post("ready");
+  sendHeight();
+});
+window.addEventListener("resize", sendHeight);
+</script>
 </body>
 </html>
