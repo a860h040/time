@@ -1,245 +1,300 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Next Extremum — Method 1 vs Method 2</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <title>ZigZag Predictors — Method 1 vs Method 2</title>
   <style>
     :root{
-      --bg:#0b1020; --panel:#111a33; --panel2:#0f1730;
-      --hair:rgba(255,255,255,.10); --hair2:rgba(255,255,255,.08);
-      --text:#eaf0ff; --muted:rgba(234,240,255,.72);
-      --ok:#2bd07e; --warn:#ffd166; --err:#ff6b6b;
-      --radius:18px;
+      --bg:#0b1020;
+      --panel:#121a2f;
+      --panel2:#0f162b;
+      --ink:#e9eefc;
+      --muted:#9fb0d1;
+      --accent:#5aa0ff;
+      --hair:rgba(255,255,255,.08);
+      --err:#ff6b6b;
+      --ok:#2bd07e;
+      --shadow:0 14px 34px rgba(0,0,0,.45);
+      --radius:16px;
     }
-    *{ box-sizing:border-box; }
+    *{box-sizing:border-box}
     body{
       margin:0;
-      font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-      background:radial-gradient(900px 600px at 20% 10%, rgba(90,160,255,.20), transparent 60%),
-                 radial-gradient(800px 520px at 80% 20%, rgba(43,208,126,.14), transparent 55%),
-                 radial-gradient(900px 600px at 50% 95%, rgba(255,209,102,.10), transparent 60%),
-                 var(--bg);
-      color:var(--text);
+      color:var(--ink);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+      background:radial-gradient(1200px 700px at 80% -200px, #1c2750 0%, var(--bg) 45%, var(--bg) 100%);
     }
-    .wrap{ max-width:1100px; margin:0 auto; padding:18px; display:flex; flex-direction:column; gap:14px; }
+    .wrap{max-width:1200px;margin:28px auto;padding:0 16px}
     header{
-      display:flex; align-items:flex-end; justify-content:space-between; gap:12px;
-      padding:14px 16px; border:1px solid var(--hair);
-      background:linear-gradient(180deg, rgba(17,26,51,.90), rgba(15,23,48,.84));
-      border-radius:var(--radius); box-shadow:0 14px 40px rgba(0,0,0,.32);
+      display:flex;gap:14px;align-items:flex-end;justify-content:space-between;
+      margin-bottom:14px;
     }
-    h1{ margin:0; font-size:18px; letter-spacing:.2px; }
-    .sub{ margin-top:6px; font-size:12px; color:var(--muted); line-height:1.35; }
-
-    .status{ font-size:12px; color:var(--muted); display:flex; flex-direction:column; gap:6px; align-items:flex-end; text-align:right; }
-    .pill{
-      display:inline-flex; align-items:center; gap:8px; padding:7px 10px; border-radius:999px;
-      border:1px solid var(--hair2); background:rgba(255,255,255,.04); color:var(--muted); white-space:nowrap;
+    h1{margin:0;font-size:18px;letter-spacing:.2px}
+    .sub{margin:6px 0 0;color:var(--muted);font-size:13px;line-height:1.35}
+    .actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .btn{
+      appearance:none;border:1px solid var(--hair);background:rgba(255,255,255,.04);color:var(--ink);
+      padding:9px 12px;border-radius:12px;cursor:pointer;font-weight:650;
+      box-shadow:0 10px 22px rgba(0,0,0,.25);
     }
-    .dot{ width:8px;height:8px;border-radius:50%; background:var(--warn); box-shadow:0 0 0 4px rgba(255,209,102,.12); }
-    .dot.ok{ background:var(--ok); box-shadow:0 0 0 4px rgba(43,208,126,.12); }
-    .dot.err{ background:var(--err); box-shadow:0 0 0 4px rgba(255,107,107,.12); }
+    .btn:hover{border-color:rgba(255,255,255,.16)}
+    .btn:active{transform:translateY(1px)}
+    .grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:14px;
+      align-items:stretch;
+    }
+    @media (max-width: 980px){
+      header{align-items:flex-start;flex-direction:column}
+      .grid{grid-template-columns:1fr}
+    }
 
-    .grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
     .card{
+      background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
       border:1px solid var(--hair);
-      background:linear-gradient(180deg, rgba(17,26,51,.88), rgba(15,23,48,.82));
-      border-radius:var(--radius); overflow:hidden; box-shadow:0 14px 40px rgba(0,0,0,.30);
-      min-height:220px;
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      overflow:hidden;
     }
-    .cardHead{ padding:12px 14px; border-bottom:1px solid var(--hair2); display:flex; align-items:center; justify-content:space-between; gap:10px; }
-    .cardHead .title{ font-weight:800; font-size:13px; letter-spacing:.25px; color:rgba(234,240,255,.92); }
-    .tag{ font-size:11px; padding:6px 8px; border:1px solid var(--hair2); border-radius:999px; color:var(--muted); background:rgba(255,255,255,.03); }
-
-    iframe{ width:100%; height:320px; border:0; display:block; background:transparent; }
-
-    .tableCard{
+    .cardHead{
+      display:flex;align-items:center;justify-content:space-between;gap:10px;
+      padding:12px 14px;
+      border-bottom:1px solid var(--hair);
+    }
+    .cardHead .title{
+      font-size:14px;font-weight:800;letter-spacing:.2px;
+      display:flex;gap:10px;align-items:center;
+    }
+    .badge{
+      font-size:11px;color:var(--muted);
       border:1px solid var(--hair);
-      background:linear-gradient(180deg, rgba(17,26,51,.88), rgba(15,23,48,.82));
-      border-radius:var(--radius); overflow:hidden; box-shadow:0 14px 40px rgba(0,0,0,.30);
+      background:rgba(0,0,0,.12);
+      padding:3px 8px;border-radius:999px;
     }
-    .tableHead{ padding:12px 14px; border-bottom:1px solid var(--hair2); display:flex; align-items:center; justify-content:space-between; gap:10px; }
-    .tableHead .left{ display:flex; flex-direction:column; gap:4px; }
-    .tableHead .left .t{ font-weight:800; font-size:13px; letter-spacing:.25px; }
-    .tableHead .left .d{ font-size:12px; color:var(--muted); }
+    .status{
+      font-size:12px;color:var(--muted);
+      min-height:16px;
+      text-align:right;
+      max-width:55%;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    }
+    .status.err{color:var(--err)}
+    .frame{
+      width:100%;
+      border:0;
+      display:block;
+      background:transparent;
+    }
 
-    .tableWrap{ overflow:auto; }
-    table{ width:100%; border-collapse:separate; border-spacing:0; min-width:520px; }
+    .tableCard{margin-top:14px}
+    .tableHead{
+      display:flex;align-items:center;justify-content:space-between;gap:12px;
+      padding:12px 14px;border-bottom:1px solid var(--hair);
+    }
+    .tableHead .left{display:flex;flex-direction:column;gap:4px}
+    .tableHead .left b{font-size:14px}
+    .tableHead .left span{font-size:12px;color:var(--muted)}
+    table{width:100%;border-collapse:separate;border-spacing:0}
     thead th{
-      position:sticky; top:0; background:rgba(13,19,38,.92); backdrop-filter: blur(10px);
-      text-align:left; font-size:12px; color:rgba(234,240,255,.88);
-      padding:10px 12px; border-bottom:1px solid var(--hair2); z-index:1;
+      position:sticky; top:0;
+      background:rgba(18,26,47,.92);
+      backdrop-filter: blur(6px);
+      border-bottom:1px solid var(--hair);
+      text-align:left;
+      padding:10px 12px;
+      font-size:12px;color:var(--muted);
+      z-index:1;
     }
     tbody td{
-      padding:10px 12px; border-bottom:1px solid rgba(255,255,255,.06);
-      font-size:12.5px; color:rgba(234,240,255,.92);
+      padding:11px 12px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+      font-size:13px;
     }
-    tbody tr:hover td{ background:rgba(255,255,255,.03); }
-    .mutedCell{ color:rgba(234,240,255,.55); }
-
-    @media (max-width: 860px){
-      .grid{ grid-template-columns:1fr; }
-      header{ flex-direction:column; align-items:flex-start; }
-      .status{ align-items:flex-start; text-align:left; }
-      iframe{ height:310px; }
+    tbody tr:hover td{background:rgba(255,255,255,.02)}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+    .empty{
+      color:rgba(233,238,252,.55);
+      font-style:italic;
+    }
+    .foot{
+      padding:10px 14px;color:var(--muted);font-size:12px;
+      border-top:1px solid var(--hair);
+      display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;
     }
   </style>
 </head>
-
 <body>
   <div class="wrap">
     <header>
       <div>
         <h1>Next Extremum (prediction) — Method 1 vs Method 2</h1>
-        <div class="sub">
-          Each method has its <b>own</b> Min-days input. Table merges rows by <b>Time</b>.
-        </div>
+        <p class="sub">
+          Click <b>Load &amp; Predict</b> in either panel. Results merge into the table by <b>Time</b>.
+          Each method has its own independent <b>Min days after last sheet date</b>.
+        </p>
       </div>
-      <div class="status">
-        <div class="pill" id="connPill">
-          <span class="dot" id="connDot"></span>
-          <span id="connText">Waiting for panels…</span>
-        </div>
-        <div class="pill">
-          <span style="opacity:.85;">Rows:</span> <span id="rowCount" style="font-weight:800;">0</span>
-        </div>
+      <div class="actions">
+        <button class="btn" id="clearBtn">Clear table</button>
       </div>
     </header>
 
-    <section class="grid">
-      <div class="card">
+    <div class="grid">
+      <section class="card">
         <div class="cardHead">
-          <div class="title">Method 1</div>
-          <span class="tag">Independent min-days</span>
+          <div class="title">Method 1 <span class="badge">local</span></div>
+          <div class="status" id="status1"></div>
         </div>
-        <iframe id="m1" title="Method 1 Panel" src="method1.html"></iframe>
-      </div>
+        <iframe class="frame" id="frame1" src="method1.html" title="Method 1"></iframe>
+      </section>
 
-      <div class="card">
+      <section class="card">
         <div class="cardHead">
-          <div class="title">Method 2</div>
-          <span class="tag">Independent min-days</span>
+          <div class="title">Method 2 <span class="badge">local</span></div>
+          <div class="status" id="status2"></div>
         </div>
-        <iframe id="m2" title="Method 2 Panel" src="method2.html"></iframe>
-      </div>
-    </section>
+        <iframe class="frame" id="frame2" src="method2.html" title="Method 2"></iframe>
+      </section>
+    </div>
 
-    <section class="tableCard">
+    <section class="card tableCard">
       <div class="tableHead">
         <div class="left">
-          <div class="t">Predictions Table</div>
-          <div class="d">If both methods return the same <b>Time</b>, both prices go in the same row.</div>
+          <b>Prediction Log</b>
+          <span>Rows merge by Time (YYYY-MM-DD). Prices land in Method 1 / Method 2 columns.</span>
         </div>
       </div>
 
-      <div class="tableWrap">
+      <div style="max-height:420px;overflow:auto">
         <table>
           <thead>
             <tr>
-              <th style="width:38%;">Time</th>
-              <th style="width:31%;">Method 1 (Price)</th>
-              <th style="width:31%;">Method 2 (Price)</th>
+              <th style="width:28%">Time</th>
+              <th style="width:36%">Method 1 (Price)</th>
+              <th style="width:36%">Method 2 (Price)</th>
             </tr>
           </thead>
-          <tbody id="rows"></tbody>
+          <tbody id="tbody">
+            <tr>
+              <td class="mono empty" colspan="3">No predictions yet — click Load &amp; Predict.</td>
+            </tr>
+          </tbody>
         </table>
+      </div>
+
+      <div class="foot">
+        <span>Tip: If one method hasn’t returned that Time yet, the other cell stays blank until it arrives.</span>
+        <span class="mono" id="count">rows: 0</span>
       </div>
     </section>
   </div>
 
-  <script>
-    (function(){
-      const connDot = document.getElementById('connDot');
-      const connText = document.getElementById('connText');
-      const rowCount = document.getElementById('rowCount');
-      const tbody = document.getElementById('rows');
+<script>
+(() => {
+  const frame1 = document.getElementById('frame1');
+  const frame2 = document.getElementById('frame2');
+  const status1 = document.getElementById('status1');
+  const status2 = document.getElementById('status2');
+  const tbody = document.getElementById('tbody');
+  const countEl = document.getElementById('count');
+  const clearBtn = document.getElementById('clearBtn');
 
-      const panelReady = { method1: false, method2: false };
-      const byTime = new Map();   // time -> {time, m1, m2}
-      const order = [];           // insertion order of time keys
+  // Key: "YYYY-MM-DD" -> { time, m1, m2 }
+  const rows = new Map();
 
-      function setConn(state, text){
-        connText.textContent = text;
-        connDot.classList.remove('ok','err');
-        if(state === 'ok') connDot.classList.add('ok');
-        if(state === 'err') connDot.classList.add('err');
-      }
+  function setStatus(method, text, isErr=false){
+    const el = method === 'method1' ? status1 : status2;
+    el.textContent = text || '';
+    el.classList.toggle('err', !!isErr);
+  }
 
-      function esc(s){
-        return String(s ?? '')
-          .replaceAll('&','&amp;')
-          .replaceAll('<','&lt;')
-          .replaceAll('>','&gt;')
-          .replaceAll('"','&quot;')
-          .replaceAll("'","&#039;");
-      }
+  function normalizeTime(t){
+    // Expecting YYYY-MM-DD from method pages; keep as-is but trim.
+    return String(t || '').trim();
+  }
 
-      function render(){
-        rowCount.textContent = String(order.length);
+  function render(){
+    const keys = Array.from(rows.keys()).sort((a,b)=> a.localeCompare(b));
+    countEl.textContent = `rows: ${keys.length}`;
 
-        if(order.length === 0){
-          tbody.innerHTML = `<tr><td class="mutedCell" colspan="3">No rows yet. Click “Load & Predict”.</td></tr>`;
-          return;
-        }
+    if(keys.length === 0){
+      tbody.innerHTML = `<tr><td class="mono empty" colspan="3">No predictions yet — click Load &amp; Predict.</td></tr>`;
+      return;
+    }
 
-        let html = '';
-        for(const k of order){
-          const r = byTime.get(k);
-          html += `
-            <tr>
-              <td>${esc(r.time)}</td>
-              <td class="${r.m1 ? '' : 'mutedCell'}">${esc(r.m1 || '')}</td>
-              <td class="${r.m2 ? '' : 'mutedCell'}">${esc(r.m2 || '')}</td>
-            </tr>
-          `;
-        }
-        tbody.innerHTML = html;
-      }
+    tbody.innerHTML = keys.map(time => {
+      const r = rows.get(time);
+      const m1 = (r.m1 ?? '');
+      const m2 = (r.m2 ?? '');
+      return `
+        <tr>
+          <td class="mono">${time}</td>
+          <td class="mono">${m1 || `<span class="empty">—</span>`}</td>
+          <td class="mono">${m2 || `<span class="empty">—</span>`}</td>
+        </tr>
+      `;
+    }).join('');
+  }
 
-      function upsertRow(time, method, price){
-        const key = String(time ?? '').trim();
-        if(!key || key === '—') return;
+  function upsertPrediction(method, time, price){
+    const t = normalizeTime(time);
+    if(!t) return;
 
-        let row = byTime.get(key);
-        if(!row){
-          row = { time: key, m1:'', m2:'' };
-          byTime.set(key, row);
-          order.push(key);
-        }
-        if(method === 'method1') row.m1 = String(price ?? '').trim();
-        if(method === 'method2') row.m2 = String(price ?? '').trim();
-        render();
-      }
+    if(!rows.has(t)) rows.set(t, { time: t, m1: '', m2: '' });
+    const r = rows.get(t);
+    if(method === 'method1') r.m1 = String(price ?? '');
+    if(method === 'method2') r.m2 = String(price ?? '');
+    render();
+  }
 
-      window.addEventListener('message', (event) => {
-        if(event.origin !== window.location.origin) return;
-        const msg = event.data || {};
+  // Clear table
+  clearBtn.addEventListener('click', () => {
+    rows.clear();
+    render();
+  });
 
-        if(msg.type === 'ready'){
-          panelReady[msg.method] = true;
-          if(panelReady.method1 && panelReady.method2) setConn('ok', 'Panels ready');
-          else setConn('warn', 'One panel ready…');
-          return;
-        }
+  // Iframe load errors
+  frame1.addEventListener('error', () => setStatus('method1', 'Failed to load method1.html', true));
+  frame2.addEventListener('error', () => setStatus('method2', 'Failed to load method2.html', true));
 
-        if(msg.type === 'panel_error'){
-          setConn('err', msg.message || 'A panel error occurred');
-          return;
-        }
+  // Messages from method pages
+  window.addEventListener('message', (ev) => {
+    const msg = ev.data || {};
+    if(!msg || typeof msg !== 'object') return;
 
-        if(msg.type === 'prediction'){
-          upsertRow(msg.time, msg.method, msg.price);
-          return;
-        }
-      });
+    if(msg.type === 'resize'){
+      const h = Math.max(120, Number(msg.height) || 0);
+      if(msg.method === 'method1') frame1.style.height = h + 'px';
+      if(msg.method === 'method2') frame2.style.height = h + 'px';
+      return;
+    }
 
-      render();
-      setConn('warn', 'Waiting for panels…');
-    })();
-  </script>
+    if(msg.type === 'ready'){
+      setStatus(msg.method, 'Ready');
+      return;
+    }
+
+    if(msg.type === 'running'){
+      setStatus(msg.method, 'Running…');
+      return;
+    }
+
+    if(msg.type === 'error'){
+      setStatus(msg.method, msg.message || 'Error', true);
+      return;
+    }
+
+    if(msg.type === 'prediction'){
+      setStatus(msg.method, `OK • leadDays=${msg.leadDays} • time=${msg.time}`);
+      upsertPrediction(msg.method, msg.time, msg.price);
+      return;
+    }
+  });
+
+  // Initial render
+  render();
+})();
+</script>
 </body>
 </html>
